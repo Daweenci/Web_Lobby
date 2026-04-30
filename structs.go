@@ -27,6 +27,9 @@ const (
 	RequestAddBotFriend        MessageType = "add_bot_friend"        //TODO
 	RequestRemoveBotFriend     MessageType = "remove_bot_friend"     //TODO
 	RequestInviteBotFriend     MessageType = "invite_bot_friend"     //TODO
+	RequestStartedTyping       MessageType = "started_typing"        //TODO
+	RequestStoppedTyping       MessageType = "stopped_typing"        //TODO
+	RequestLobbyChatMessage    MessageType = "lobby_chat_message"    //TODO
 
 	ResponseWelcome               MessageType = "welcome"
 	ResponseLoginSuccessful       MessageType = "login_successful"
@@ -50,6 +53,7 @@ const (
 	ResponseBotLeft               MessageType = "bot_left"           //TODO
 	ResponseBotFriendAdded        MessageType = "bot_friend_added"   //TODO
 	ResponseBotFriendRemoved      MessageType = "bot_friend_removed" //TODO
+	ResponsePlayerTyping          MessageType = "player_typing"      //TODO
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
 )
@@ -61,9 +65,20 @@ type Bot struct {
 	MessageQueue chan BotMessage `json:"botMessageQueue"`
 }
 
-type BotMessage struct {
+type BotDTO struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type BotMessage struct { //To the bot, not from the bot
 	LobbyID string `json:"lobbyID"`
-	Content string `json:"content"`
+}
+
+type LobbyChatMessage struct {
+	PlayerID   string `json:"playerID"`
+	PlayerName string `json:"playerName"`
+	IsBot      bool   `json:"isBot"`
+	Message    string `json:"message"`
 }
 
 type Player struct {
@@ -142,6 +157,19 @@ type AcceptFriendRequestRequest struct {
 	PlayerID      string      `json:"playerID"`
 }
 
+type SendLobbyChatMessageRequest struct {
+	Type     MessageType `json:"type"`
+	LobbyID  string      `json:"lobbyID"`
+	PlayerID string      `json:"playerID"`
+	Message  string      `json:"message"`
+}
+
+type TypingRequest struct {
+	Type     MessageType `json:"type"`
+	LobbyID  string      `json:"lobbyID"`
+	PlayerID string      `json:"playerID"`
+}
+
 type StartGame struct { //TODO: Why StartGame not response or request?
 	Type     MessageType `json:"type"`
 	LobbyID  string      `json:"lobbyID"`
@@ -155,15 +183,16 @@ type CancelGame struct { //TODO: Why CancelGame not response or request?
 }
 
 type Lobby struct {
-	ID         string
-	Name       string
-	MaxPlayers int
-	IsPrivate  bool
-	Password   string
-	Players    []*Player
-	Bots       []*Bot
-	GameStart  []PlayerStarted
-	Lock       sync.RWMutex
+	ID          string
+	Name        string
+	MaxPlayers  int
+	IsPrivate   bool
+	Password    string
+	Players     []*Player
+	Bots        []*Bot
+	GameStart   []PlayerStarted
+	ChatHistory []LobbyChatMessage
+	Lock        sync.RWMutex
 }
 
 type Response interface {
@@ -197,7 +226,7 @@ type LobbyDTO struct {
 	MaxPlayers int             `json:"maxPlayers"`
 	IsPrivate  bool            `json:"isPrivate"`
 	Players    []PlayerDTO     `json:"players"`
-	Bots       []Bot           `json:"bots"`
+	Bots       []BotDTO        `json:"bots"`
 	GameStart  []PlayerStarted `json:"gameStart"`
 }
 
@@ -214,6 +243,17 @@ type LobbiesUpdateResponse struct {
 type LobbyJoinFailedResponse struct {
 	BaseResponse
 	Message string `json:"message"`
+}
+
+type AddBotToLobbyRequest struct {
+	Type    MessageType `json:"type"`
+	LobbyID string      `json:"lobbyID"`
+}
+
+type RemoveBotFromLobbyRequest struct {
+	Type    MessageType `json:"type"`
+	LobbyID string      `json:"lobbyID"`
+	BotID   string      `json:"botID"`
 }
 
 type SuccessfulJoinLobbyResponse struct {
@@ -259,6 +299,32 @@ type FriendsListResponse struct {
 type FriendOnlineStatusResponse struct {
 	BaseResponse
 	Friend FriendDTO `json:"friend"`
+}
+
+type BotJoinedResponse struct {
+	BaseResponse
+	Bot BotDTO `json:"bot"`
+}
+
+type BotLeftResponse struct {
+	BaseResponse
+	BotID string `json:"botID"`
+}
+
+type LobbyChatMessageResponse struct {
+	BaseResponse
+	LobbyID    string `json:"lobbyID"`
+	SenderName string `json:"senderName"`
+	SenderID   string `json:"senderID"`
+	IsBot      bool   `json:"isBot"`
+	Content    string `json:"content"`
+}
+
+type PlayerTypingResponse struct {
+	BaseResponse
+	PlayerID   string `json:"playerID"`
+	PlayerName string `json:"playerName"`
+	IsTyping   bool   `json:"isTyping"`
 }
 
 type ErrorResponse struct {
