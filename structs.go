@@ -12,24 +12,24 @@ const (
 	Online  string = "online"
 	Offline string = "offline"
 
-	RequestAuthentication      MessageType = "authenticate"
-	RequestLogin               MessageType = "login"
-	RequestRegister            MessageType = "register"
-	RequestCreateLobby         MessageType = "create_lobby"
-	RequestJoinLobby           MessageType = "join_lobby"
-	RequestLeaveLobby          MessageType = "leave_lobby"
-	RequestStartGame           MessageType = "start_game"
-	RequestCancelGame          MessageType = "cancel_game"
-	RequestAddFriend           MessageType = "add_friend"
-	RequestAcceptFriendRequest MessageType = "accept_friend_request"
-	RequestAddBotToLobby       MessageType = "add_bot_to_lobby"      //TODO
-	RequestRemoveBotFromLobby  MessageType = "remove_bot_from_lobby" //TODO
-	RequestAddBotFriend        MessageType = "add_bot_friend"        //TODO
-	RequestRemoveBotFriend     MessageType = "remove_bot_friend"     //TODO
-	RequestInviteBotFriend     MessageType = "invite_bot_friend"     //TODO
-	RequestStartedTyping       MessageType = "started_typing"        //TODO
-	RequestStoppedTyping       MessageType = "stopped_typing"        //TODO
-	RequestLobbyChatMessage    MessageType = "lobby_chat_message"    //TODO
+	RequestAuthentication       MessageType = "authenticate"
+	RequestLogin                MessageType = "login"
+	RequestRegister             MessageType = "register"
+	RequestCreateLobby          MessageType = "create_lobby"
+	RequestJoinLobby            MessageType = "join_lobby"
+	RequestLeaveLobby           MessageType = "leave_lobby"
+	RequestStartGame            MessageType = "start_game"
+	RequestCancelGame           MessageType = "cancel_game"
+	RequestAddFriend            MessageType = "add_friend"
+	RequestAcceptFriendRequest  MessageType = "accept_friend_request"
+	RequestAddBotToLobby        MessageType = "add_bot_to_lobby"        //TODO
+	RequestRemoveBotFromLobby   MessageType = "remove_bot_from_lobby"   //TODO
+	RequestAddBotFriend         MessageType = "add_bot_friend"          //TODO
+	RequestRemoveBotFriend      MessageType = "remove_bot_friend"       //TODO
+	RequestInviteBotFriend      MessageType = "invite_bot_friend"       //TODO
+	RequestStartedTyping        MessageType = "started_typing"          //TODO
+	RequestStoppedTyping        MessageType = "stopped_typing"          //TODO
+	RequestSendLobbyChatMessage MessageType = "send_lobby_chat_message" //TODO
 
 	ResponseWelcome               MessageType = "welcome"
 	ResponseLoginSuccessful       MessageType = "login_successful"
@@ -54,15 +54,16 @@ const (
 	ResponseBotFriendAdded        MessageType = "bot_friend_added"   //TODO
 	ResponseBotFriendRemoved      MessageType = "bot_friend_removed" //TODO
 	ResponsePlayerTyping          MessageType = "player_typing"      //TODO
+	ResponseLobbyChatMessage      MessageType = "lobby_chat_message" //TODO
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
 )
 
 type Bot struct {
-	ID           string          `json:"id"`
-	Name         string          `json:"name"`
-	SystemPrompt string          `json:"systemPrompt"`
-	MessageQueue chan BotMessage `json:"botMessageQueue"`
+	ID                      string          `json:"id"`
+	Name                    string          `json:"name"`
+	SystemPromptPersonality string          `json:"systemPromptPersonality"`
+	MessageQueue            chan BotMessage `json:"botMessageQueue"`
 }
 
 type BotDTO struct {
@@ -75,8 +76,8 @@ type BotMessage struct { //To the bot, not from the bot
 }
 
 type LobbyChatMessage struct {
-	PlayerID   string `json:"playerID"`
-	PlayerName string `json:"playerName"`
+	SenderID   string `json:"senderID"`
+	SenderName string `json:"senderName"`
 	IsBot      bool   `json:"isBot"`
 	Message    string `json:"message"`
 }

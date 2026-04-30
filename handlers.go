@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -50,7 +52,7 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 	}
 
 	// Check lobby capacity
-	if len(lobby.Players) >= lobby.MaxPlayers {
+	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		lobbyFullResponse := LobbyJoinFailedResponse{
 			BaseResponse: newBaseResponse(ResponseJoinLobbyFailed),
 			Message:      "Lobby is full",
@@ -68,6 +70,7 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 		MaxPlayers: lobby.MaxPlayers,
 		IsPrivate:  lobby.IsPrivate,
 		Players:    toPlayerResponses(lobby.Players),
+		Bots:       toBotResponses(lobby.Bots),
 		GameStart:  lobby.GameStart,
 	}
 	lobby.Lock.Unlock()
@@ -407,4 +410,174 @@ func getFriendsWithOnlineStatus(playerID string) []FriendDTO {
 		}
 	}
 	return friendsListWithOnlineStatus
+}
+
+func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
+	lobbiesLock.RLock()
+	lobby, ok := lobbies[msg.LobbyID]
+	lobbiesLock.RUnlock()
+	if !ok {
+		log.Println("sendLobbyChatMessageHandler: Lobby not found")
+		return
+	}
+
+	activePlayersLock.RLock()
+	player, ok := activePlayers[msg.PlayerID]
+	activePlayersLock.RUnlock()
+	if !ok {
+		log.Println("sendLobbyChatMessageHandler: Player not found")
+		return
+	}
+
+	// Check player is actually in this lobby
+	lobby.Lock.RLock()
+	inLobby := false
+	for _, p := range lobby.Players {
+		if p.ID == player.ID {
+			inLobby = true
+			break
+		}
+	}
+	lobby.Lock.RUnlock()
+	if !inLobby {
+		sendErrorToPlayer(player, "You are not in this lobby")
+		return
+	}
+
+	// Append to chat history
+	chatMsg := LobbyChatMessage{
+		SenderID:   player.ID,
+		SenderName: player.Name,
+		IsBot:      false,
+		Message:    msg.Message,
+	}
+	lobby.Lock.Lock()
+	lobby.ChatHistory = append(lobby.ChatHistory, chatMsg)
+	lobby.Lock.Unlock()
+
+	// Broadcast to all players in lobby
+	broadcastLobbyChatMessage(lobby, chatMsg)
+
+	// Stop typing indicator
+	stopTyping(player.ID, lobby)
+
+	// Signal all bots in lobby
+	lobby.Lock.RLock()
+	for _, bot := range lobby.Bots {
+		bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
+	}
+	lobby.Lock.RUnlock()
+}
+
+var (
+	typingTimers     = make(map[string]*time.Timer) // playerID -> timer
+	typingTimersLock sync.Mutex
+)
+
+func typingHandler(msg TypingRequest) {
+	lobbiesLock.RLock()
+	lobby, ok := lobbies[msg.LobbyID]
+	lobbiesLock.RUnlock()
+	if !ok {
+		return
+	}
+
+	activePlayersLock.RLock()
+	player, ok := activePlayers[msg.PlayerID]
+	activePlayersLock.RUnlock()
+	if !ok {
+		return
+	}
+
+	broadcastTyping(lobby, msg.PlayerID, player.Name, true)
+
+	typingTimersLock.Lock()
+	if timer, exists := typingTimers[msg.PlayerID]; exists {
+		timer.Stop()
+	}
+	typingTimers[msg.PlayerID] = time.AfterFunc(3*time.Second, func() {
+		stopTyping(msg.PlayerID, lobby)
+	})
+	typingTimersLock.Unlock()
+}
+
+func stopTyping(playerID string, lobby *Lobby) {
+	typingTimersLock.Lock()
+	if timer, exists := typingTimers[playerID]; exists {
+		timer.Stop()
+		delete(typingTimers, playerID)
+	}
+	typingTimersLock.Unlock()
+
+	activePlayersLock.RLock()
+	player, ok := activePlayers[playerID]
+	activePlayersLock.RUnlock()
+	if !ok {
+		return
+	}
+
+	broadcastTyping(lobby, playerID, player.Name, false)
+}
+
+func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
+	lobbiesLock.RLock()
+	lobby, ok := lobbies[msg.LobbyID]
+	lobbiesLock.RUnlock()
+	if !ok {
+		log.Println("addBotToLobbyHandler: Lobby not found")
+		return
+	}
+
+	lobby.Lock.Lock()
+	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
+		lobby.Lock.Unlock()
+		return
+	}
+	lobby.Lock.Unlock()
+
+	name, personality, err := generateBotPersonality()
+	if err != nil {
+		log.Printf("addBotToLobbyHandler: failed to generate bot personality: %v", err)
+		return
+	}
+
+	bot := &Bot{
+		ID:                      uuid.New().String(),
+		Name:                    name,
+		SystemPromptPersonality: personality,
+		MessageQueue:            make(chan BotMessage, 50),
+	}
+
+	lobby.Lock.Lock()
+	lobby.Bots = append(lobby.Bots, bot)
+	lobby.Lock.Unlock()
+
+	go bot.Start(lobby)
+
+	broadcastLobbyUpdate(lobby)
+	broadcastLobbies()
+}
+
+func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
+	lobbiesLock.RLock()
+	lobby, ok := lobbies[msg.LobbyID]
+	lobbiesLock.RUnlock()
+	if !ok {
+		log.Println("removeBotFromLobbyHandler: Lobby not found")
+		return
+	}
+
+	lobby.Lock.Lock()
+	for i := len(lobby.Bots) - 1; i >= 0; i-- {
+		if lobby.Bots[i].ID == msg.BotID {
+			// Close the bot's queue so its goroutine exits cleanly
+			close(lobby.Bots[i].MessageQueue)
+			lobby.Bots = append(lobby.Bots[:i], lobby.Bots[i+1:]...)
+			break
+		}
+	}
+	lobby.Lock.Unlock()
+
+	broadcastLobbyUpdate(lobby)
+	broadcastLobbies()
 }

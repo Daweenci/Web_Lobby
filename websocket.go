@@ -231,6 +231,40 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			msg.PlayerID = player.ID
 			acceptFriendRequestHandler(msg)
 
+		case RequestSendLobbyChatMessage:
+			var msg SendLobbyChatMessageRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid send_lobby_chat_message message")
+				continue
+			}
+			msg.PlayerID = player.ID
+			sendLobbyChatMessageHandler(msg)
+
+		case RequestStartedTyping:
+			var msg TypingRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid started_typing message")
+				continue
+			}
+			msg.PlayerID = player.ID
+			typingHandler(msg)
+
+		case RequestAddBotToLobby:
+			var msg AddBotToLobbyRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid add_bot_to_lobby message")
+				continue
+			}
+			addBotToLobbyHandler(msg)
+
+		case RequestRemoveBotFromLobby:
+			var msg RemoveBotFromLobbyRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid remove_bot_from_lobby message")
+				continue
+			}
+			removeBotFromLobbyHandler(msg)
+
 		default:
 			sendErrorToPlayer(player, "Unknown message type")
 		}

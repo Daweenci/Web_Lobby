@@ -7,6 +7,8 @@ func broadcastLobbyUpdate(lobby *Lobby) {
 	copy(playersCopy, lobby.Players)
 	gameStartCopy := make([]PlayerStarted, len(lobby.GameStart))
 	copy(gameStartCopy, lobby.GameStart)
+	botsCopy := make([]*Bot, len(lobby.Bots))
+	copy(botsCopy, lobby.Bots)
 	lobby.Lock.RUnlock()
 	updatedLobby := LobbyDTO{
 		ID:         lobby.ID,
@@ -14,6 +16,7 @@ func broadcastLobbyUpdate(lobby *Lobby) {
 		MaxPlayers: lobby.MaxPlayers,
 		IsPrivate:  lobby.IsPrivate,
 		Players:    toPlayerResponses(playersCopy),
+		Bots:       toBotResponses(botsCopy),
 		GameStart:  gameStartCopy,
 	}
 
@@ -41,12 +44,15 @@ func broadcastLobbies() {
 		copy(playersCopy, lobby.Players)
 		gameStartCopy := make([]PlayerStarted, len(lobby.GameStart))
 		copy(gameStartCopy, lobby.GameStart)
+		botsCopy := make([]*Bot, len(lobby.Bots))
+		copy(botsCopy, lobby.Bots)
 		lobbiesResponse = append(lobbiesResponse, LobbyDTO{
 			ID:         lobby.ID,
 			Name:       lobby.Name,
 			MaxPlayers: lobby.MaxPlayers,
 			IsPrivate:  lobby.IsPrivate,
 			Players:    toPlayerResponses(playersCopy),
+			Bots:       toBotResponses(botsCopy),
 			GameStart:  gameStartCopy,
 		})
 		lobby.Lock.RUnlock()
@@ -64,5 +70,47 @@ func broadcastLobbies() {
 			Lobbies:      lobbiesResponse,
 		}
 		sendResponse(player, lobbiesUpdateResponse)
+	}
+}
+
+func broadcastLobbyChatMessage(lobby *Lobby, msg LobbyChatMessage) {
+	lobby.Lock.RLock()
+	playersCopy := make([]*Player, len(lobby.Players))
+	copy(playersCopy, lobby.Players)
+	lobby.Lock.RUnlock()
+
+	response := LobbyChatMessageResponse{
+		BaseResponse: newBaseResponse(ResponseLobbyChatMessage),
+		LobbyID:      lobby.ID,
+		SenderName:   msg.SenderName,
+		SenderID:     msg.SenderID,
+		Content:      msg.Message,
+		IsBot:        msg.IsBot,
+	}
+
+	for _, player := range playersCopy {
+		sendResponse(player, response)
+	}
+}
+
+func broadcastTyping(lobby *Lobby, playerID string, playerName string, isTyping bool) {
+	lobby.Lock.RLock()
+	playersCopy := make([]*Player, len(lobby.Players))
+	copy(playersCopy, lobby.Players)
+	lobby.Lock.RUnlock()
+
+	response := PlayerTypingResponse{
+		BaseResponse: newBaseResponse(ResponsePlayerTyping),
+		PlayerID:     playerID,
+		PlayerName:   playerName,
+		IsTyping:     isTyping,
+	}
+
+	for _, player := range playersCopy {
+		// Don't send to the player who is typing
+		if player.ID == playerID {
+			continue
+		}
+		sendResponse(player, response)
 	}
 }

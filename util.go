@@ -90,6 +90,17 @@ func removePlayerFromLobbies(playerID string) {
 	lobbiesLock.RUnlock()
 }
 
+func toBotResponses(bots []*Bot) []BotDTO {
+	botDTOs := make([]BotDTO, len(bots))
+	for i, b := range bots {
+		botDTOs[i] = BotDTO{
+			ID:   b.ID,
+			Name: b.Name,
+		}
+	}
+	return botDTOs
+}
+
 func (p *Player) writePump() {
 	defer p.Conn.Close()
 
