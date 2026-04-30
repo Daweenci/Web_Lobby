@@ -1,6 +1,6 @@
 // useGameWebSocket.ts
 import { useRef, useEffect } from 'react';
-import type { yourLobby, broadcastedLobby, Player, PageType, friendRequest, Friend } from './structs';
+import type { yourLobby, broadcastedLobby, Player, PageType, friendRequest, Friend, LobbyInvite } from './structs';
 import { MessageTypes, Page } from './structs';
 import { toast } from 'sonner';
 
@@ -11,6 +11,7 @@ interface UseWebSocketProps {
   onSetPendingFriendRequests: (pendingFriendRequests: friendRequest[]) => void;
   onSetFriendsList: React.Dispatch<React.SetStateAction<Friend[]>>;
   onSetPage: (page: PageType) => void;
+  onSetPendingInvites: (pendingInvites: LobbyInvite[]) => void;
 }
 
 export default function useWebSocket({

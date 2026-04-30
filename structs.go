@@ -48,6 +48,7 @@ const (
 	ResponseFriendRequestReceived MessageType = "friend_request_received"
 	ResponseFriendRequestAccepted MessageType = "friend_request_accepted"
 	ResponseFriendOnlineStatus    MessageType = "friend_online_status"
+	ResponseInviteDeclined        MessageType = "invite_declined"
 	ResponseInviteReceived        MessageType = "invite_received"    //TODO
 	ResponseInviteSent            MessageType = "invite_sent"        //TODO
 	ResponseBotJoined             MessageType = "bot_joined"         //TODO
@@ -354,6 +355,11 @@ type InviteReceivedResponse struct {
 	LobbyName   string `json:"lobbyName"`
 	InviterID   string `json:"inviterID"`
 	InviterName string `json:"inviterName"`
+}
+
+type InviteDeclinedResponse struct {
+	BaseResponse
+	LobbyID string `json:"lobbyID"`
 }
 
 type ErrorResponse struct {

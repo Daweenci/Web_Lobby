@@ -28,13 +28,41 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 	}
 
 	lobby.Lock.Lock()
-
 	for _, p := range lobby.Players {
 		if p.ID == msg.PlayerID {
 			lobby.Lock.Unlock()
 			return
 		}
 	}
+	lobby.Lock.Unlock()
+
+	// Leave current lobby if in one
+	lobbiesLock.RLock()
+	for _, l := range lobbies {
+		if l.ID == msg.LobbyID {
+			continue
+		}
+		l.Lock.Lock()
+		for i, p := range l.Players {
+			if p.ID == msg.PlayerID {
+				l.Players = append(l.Players[:i], l.Players[i+1:]...)
+				l.Lock.Unlock()
+				lobbiesLock.RUnlock()
+				if len(l.Players) == 0 {
+					lobbiesLock.Lock()
+					delete(lobbies, l.ID)
+					lobbiesLock.Unlock()
+				} else {
+					broadcastLobbyUpdate(l)
+				}
+				broadcastLobbies()
+				goto doneLeaving
+			}
+		}
+		l.Lock.Unlock()
+	}
+	lobbiesLock.RUnlock()
+doneLeaving:
 
 	// Check if player has a valid invite for this lobby
 	hasInvite := false
@@ -53,10 +81,10 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 			BaseResponse: newBaseResponse(ResponseJoinLobbyFailed),
 			Message:      "Incorrect password",
 		})
-		lobby.Lock.Unlock()
 		return
 	}
 
+	lobby.Lock.Lock()
 	// Check lobby capacity
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		sendResponse(player, LobbyJoinFailedResponse{
@@ -80,21 +108,19 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 	}
 	lobby.Lock.Unlock()
 
-	// Clean up invite if they had one
-	if hasInvite {
-		pendingInvitesLock.Lock()
-		invites := pendingInvites[msg.PlayerID]
-		for i, lobbyID := range invites {
-			if lobbyID == msg.LobbyID {
-				pendingInvites[msg.PlayerID] = append(invites[:i], invites[i+1:]...)
-				break
-			}
+	// Always clean up any pending invite for this lobby
+	pendingInvitesLock.Lock()
+	invites := pendingInvites[msg.PlayerID]
+	for i, lobbyID := range invites {
+		if lobbyID == msg.LobbyID {
+			pendingInvites[msg.PlayerID] = append(invites[:i], invites[i+1:]...)
+			break
 		}
-		if len(pendingInvites[msg.PlayerID]) == 0 {
-			delete(pendingInvites, msg.PlayerID)
-		}
-		pendingInvitesLock.Unlock()
 	}
+	if len(pendingInvites[msg.PlayerID]) == 0 {
+		delete(pendingInvites, msg.PlayerID)
+	}
+	pendingInvitesLock.Unlock()
 
 	sendResponse(player, SuccessfulJoinLobbyResponse{
 		BaseResponse: newBaseResponse(ResponseJoinLobbySuccessful),
@@ -620,6 +646,18 @@ func declineInviteHandler(msg DeclineInviteRequest) {
 		delete(pendingInvites, msg.PlayerID)
 	}
 	pendingInvitesLock.Unlock()
+
+	activePlayersLock.RLock()
+	player, ok := activePlayers[msg.PlayerID]
+	activePlayersLock.RUnlock()
+	if !ok {
+		return
+	}
+
+	sendResponse(player, InviteDeclinedResponse{
+		BaseResponse: newBaseResponse(ResponseInviteDeclined),
+		LobbyID:      msg.LobbyID,
+	})
 }
 
 func inviteToLobbyHandler(msg InviteToLobbyRequest) {
@@ -665,6 +703,21 @@ func inviteToLobbyHandler(msg InviteToLobbyRequest) {
 		})
 		return
 	}
+
+	// Check if friend is already in this lobby
+	lobby.Lock.RLock()
+	for _, p := range lobby.Players {
+		if p.ID == msg.FriendID {
+			lobby.Lock.RUnlock()
+			sendResponse(player, InviteSentResponse{
+				BaseResponse: newBaseResponse(ResponseInviteSent),
+				Success:      false,
+				Message:      "Player is already in this lobby",
+			})
+			return
+		}
+	}
+	lobby.Lock.RUnlock()
 
 	// Check if invite already pending
 	pendingInvitesLock.RLock()

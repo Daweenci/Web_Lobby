@@ -102,6 +102,7 @@ export const MessageTypes = {
   ResponseBotLeft: "bot_left",
   ResponsePlayerTyping: "player_typing",
   ResponseLobbyChatMessage: "lobby_chat_message",
+  ResponseInviteDeclined: "invite_declined",
   ResponseError: "error",
 } as const;
 

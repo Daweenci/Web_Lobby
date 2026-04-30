@@ -4,7 +4,7 @@ import GameOfTwo from './pages/GameOfTwo';
 import GameOfThree from './pages/GameOfThree';
 import GameOfFour from './pages/GameOfFour';
 import LobbyScreen from './pages/LobbyScreen';
-import type { yourLobby, broadcastedLobby, PageType, Player, friendRequest, Friend } from './structs';
+import type { yourLobby, broadcastedLobby, PageType, Player, friendRequest, Friend, LobbyInvite } from './structs';
 import { Page } from './structs';
 import useWebSocket from './useWebSocket';
 import { Toaster } from 'sonner';
@@ -17,6 +17,7 @@ export default function App() {
   const [pendingFriendRequests, setPendingFriendRequests] = useState<friendRequest[]>([]);
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>(Page.Auth);
+  const [pendingInvites, setPendingInvites] = useState<LobbyInvite[]>([]);
 
   const {
     connect,
@@ -35,6 +36,7 @@ export default function App() {
     onSetPendingFriendRequests: setPendingFriendRequests,
     onSetFriendsList: setFriendsList,
     onSetPage: setCurrentPage,
+    onSetPendingInvites: setPendingInvites,
   });
   const handleConnectWebSocket = () => { connect(); };
   const handleCreateLobby = (name: string, max: number, priv: boolean, pass: string) => createLobby(name, max, priv, pass);

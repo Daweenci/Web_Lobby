@@ -66,6 +66,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			activePlayersLock.RUnlock()
 
 			if exists && current.Conn == conn {
+
 				disconnectPlayer(player.ID)
 				broadcastLobbies()
 				pingAllFriendsOnlineStatusHandler(player.ID, false) //isOnline = false

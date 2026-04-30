@@ -53,6 +53,10 @@ func disconnectPlayer(playerID string) {
 	delete(activePlayers, playerID)
 	activePlayersLock.Unlock()
 
+	pendingInvitesLock.Lock()
+	delete(pendingInvites, playerID)
+	pendingInvitesLock.Unlock()
+
 	close(player.Send)
 	player.Conn.Close()
 	removePlayerFromLobbies(playerID)
