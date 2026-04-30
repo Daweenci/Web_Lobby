@@ -64,3 +64,42 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(first_player_id, second_player_id, created_at);
+
+
+CREATE TABLE IF NOT EXISTS bot_friends (
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    character_prompt TEXT NOT NULL,
+
+    PRIMARY KEY (id)
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_friends_creator ON bot_friends(creator_id);
+
+
+CREATE TABLE IF NOT EXISTS bot_friend_lists (
+    player_id TEXT NOT NULL,
+    bot_id TEXT NOT NULL,
+    chat_history_summary TEXT,
+    PRIMARY KEY (player_id, bot_id),
+
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (bot_id) REFERENCES bot_friends(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_friend_lists_player ON bot_friend_lists(player_id);
+
+
+CREATE TABLE IF NOT EXISTS bot_private_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id TEXT NOT NULL,
+    bot_id TEXT NOT NULL,
+    sender_type TEXT NOT NULL, -- 'player' or 'bot'
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (player_id, bot_id) REFERENCES bot_friend_lists(player_id, bot_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_private_messages ON bot_private_messages(player_id, bot_id, created_at);
