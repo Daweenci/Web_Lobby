@@ -17,6 +17,9 @@ var (
 	activePlayers     = make(map[string]*Player)
 	activePlayersLock sync.RWMutex
 
+	pendingInvites     = make(map[string][]string)
+	pendingInvitesLock sync.RWMutex
+
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -265,6 +268,23 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			removeBotFromLobbyHandler(msg)
 
+		case RequestInviteToLobby:
+			var msg InviteToLobbyRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid invite_to_lobby message")
+				continue
+			}
+			msg.PlayerID = player.ID
+			inviteToLobbyHandler(msg)
+
+		case RequestDeclineInvite:
+			var msg DeclineInviteRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid decline_invite message")
+				continue
+			}
+			msg.PlayerID = player.ID
+			declineInviteHandler(msg)
 		default:
 			sendErrorToPlayer(player, "Unknown message type")
 		}

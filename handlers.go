@@ -10,18 +10,14 @@ import (
 )
 
 func joinLobbyHandler(msg JoinLobbyRequest) {
-
-	// Check if lobby exists
 	lobbiesLock.RLock()
 	lobby, ok := lobbies[msg.LobbyID]
 	lobbiesLock.RUnlock()
 	if !ok {
 		log.Println("joinLobbyHandler: Lobby not found")
-		// Lobby not found, silently ignore or send a response if needed
 		return
 	}
 
-	// Check if player is connected
 	activePlayersLock.RLock()
 	player, ok := activePlayers[msg.PlayerID]
 	activePlayersLock.RUnlock()
@@ -32,17 +28,27 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 	}
 
 	lobby.Lock.Lock()
-	// Check if player is already in the lobby
+
 	for _, p := range lobby.Players {
 		if p.ID == msg.PlayerID {
-			// Already in the lobby, silently ignore or send a response if needed
 			lobby.Lock.Unlock()
 			return
 		}
 	}
 
-	// Check password
-	if lobby.Password != msg.Password {
+	// Check if player has a valid invite for this lobby
+	hasInvite := false
+	pendingInvitesLock.RLock()
+	for _, lobbyID := range pendingInvites[msg.PlayerID] {
+		if lobbyID == msg.LobbyID {
+			hasInvite = true
+			break
+		}
+	}
+	pendingInvitesLock.RUnlock()
+
+	// Only check password if no valid invite
+	if !hasInvite && lobby.Password != msg.Password {
 		sendResponse(player, LobbyJoinFailedResponse{
 			BaseResponse: newBaseResponse(ResponseJoinLobbyFailed),
 			Message:      "Incorrect password",
@@ -53,16 +59,15 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 
 	// Check lobby capacity
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
-		lobbyFullResponse := LobbyJoinFailedResponse{
+		sendResponse(player, LobbyJoinFailedResponse{
 			BaseResponse: newBaseResponse(ResponseJoinLobbyFailed),
 			Message:      "Lobby is full",
-		}
-		sendResponse(player, lobbyFullResponse)
+		})
 		lobby.Lock.Unlock()
 		return
 	}
 
-	// Add player and respond
+	// Add player
 	lobby.Players = append(lobby.Players, player)
 	lobbyResponse := LobbyDTO{
 		ID:         lobby.ID,
@@ -74,11 +79,27 @@ func joinLobbyHandler(msg JoinLobbyRequest) {
 		GameStart:  lobby.GameStart,
 	}
 	lobby.Lock.Unlock()
-	successfulJoinResponse := SuccessfulJoinLobbyResponse{
+
+	// Clean up invite if they had one
+	if hasInvite {
+		pendingInvitesLock.Lock()
+		invites := pendingInvites[msg.PlayerID]
+		for i, lobbyID := range invites {
+			if lobbyID == msg.LobbyID {
+				pendingInvites[msg.PlayerID] = append(invites[:i], invites[i+1:]...)
+				break
+			}
+		}
+		if len(pendingInvites[msg.PlayerID]) == 0 {
+			delete(pendingInvites, msg.PlayerID)
+		}
+		pendingInvitesLock.Unlock()
+	}
+
+	sendResponse(player, SuccessfulJoinLobbyResponse{
 		BaseResponse: newBaseResponse(ResponseJoinLobbySuccessful),
 		Lobby:        lobbyResponse,
-	}
-	sendResponse(player, successfulJoinResponse)
+	})
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
 }
@@ -429,7 +450,6 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 		return
 	}
 
-	// Check player is actually in this lobby
 	lobby.Lock.RLock()
 	inLobby := false
 	for _, p := range lobby.Players {
@@ -444,7 +464,6 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 		return
 	}
 
-	// Append to chat history
 	chatMsg := LobbyChatMessage{
 		SenderID:   player.ID,
 		SenderName: player.Name,
@@ -458,10 +477,8 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 	// Broadcast to all players in lobby
 	broadcastLobbyChatMessage(lobby, chatMsg)
 
-	// Stop typing indicator
 	stopTyping(player.ID, lobby)
 
-	// Signal all bots in lobby
 	lobby.Lock.RLock()
 	for _, bot := range lobby.Bots {
 		bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
@@ -554,7 +571,6 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 
 	go bot.Start(lobby)
 
-	// Bot successfully added — now broadcast
 	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
@@ -586,8 +602,103 @@ func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
 		return
 	}
 
-	// Bot successfully removed — now broadcast
 	broadcastBotLeft(lobby, msg.BotID)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
+}
+
+func declineInviteHandler(msg DeclineInviteRequest) {
+	pendingInvitesLock.Lock()
+	invites := pendingInvites[msg.PlayerID]
+	for i, lobbyID := range invites {
+		if lobbyID == msg.LobbyID {
+			pendingInvites[msg.PlayerID] = append(invites[:i], invites[i+1:]...)
+			break
+		}
+	}
+	if len(pendingInvites[msg.PlayerID]) == 0 {
+		delete(pendingInvites, msg.PlayerID)
+	}
+	pendingInvitesLock.Unlock()
+}
+
+func inviteToLobbyHandler(msg InviteToLobbyRequest) {
+	lobbiesLock.RLock()
+	lobby, ok := lobbies[msg.LobbyID]
+	lobbiesLock.RUnlock()
+	if !ok {
+		log.Println("inviteToLobbyHandler: Lobby not found")
+		return
+	}
+
+	activePlayersLock.RLock()
+	player, ok := activePlayers[msg.PlayerID]
+	activePlayersLock.RUnlock()
+	if !ok {
+		log.Println("inviteToLobbyHandler: Player not found")
+		disconnectPlayer(msg.PlayerID)
+		return
+	}
+
+	// Check lobby is not full
+	lobby.Lock.RLock()
+	isFull := len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers
+	lobby.Lock.RUnlock()
+	if isFull {
+		sendResponse(player, InviteSentResponse{
+			BaseResponse: newBaseResponse(ResponseInviteSent),
+			Success:      false,
+			Message:      "Lobby is full",
+		})
+		return
+	}
+
+	// Check invitee exists
+	activePlayersLock.RLock()
+	friend, friendOnline := activePlayers[msg.FriendID]
+	activePlayersLock.RUnlock()
+	if !friendOnline {
+		sendResponse(player, InviteSentResponse{
+			BaseResponse: newBaseResponse(ResponseInviteSent),
+			Success:      false,
+			Message:      "Player is not online",
+		})
+		return
+	}
+
+	// Check if invite already pending
+	pendingInvitesLock.RLock()
+	for _, lobbyID := range pendingInvites[msg.FriendID] {
+		if lobbyID == msg.LobbyID {
+			pendingInvitesLock.RUnlock()
+			sendResponse(player, InviteSentResponse{
+				BaseResponse: newBaseResponse(ResponseInviteSent),
+				Success:      false,
+				Message:      "Invite already sent",
+			})
+			return
+		}
+	}
+	pendingInvitesLock.RUnlock()
+
+	// Add invite to map
+	pendingInvitesLock.Lock()
+	pendingInvites[msg.FriendID] = append(pendingInvites[msg.FriendID], msg.LobbyID)
+	pendingInvitesLock.Unlock()
+
+	// Tell inviter it worked
+	sendResponse(player, InviteSentResponse{
+		BaseResponse: newBaseResponse(ResponseInviteSent),
+		Success:      true,
+		Message:      "Invite sent",
+	})
+
+	// Tell invitee they got an invite
+	sendResponse(friend, InviteReceivedResponse{
+		BaseResponse: newBaseResponse(ResponseInviteReceived),
+		LobbyID:      lobby.ID,
+		LobbyName:    lobby.Name,
+		InviterID:    msg.PlayerID,
+		InviterName:  player.Name,
+	})
 }

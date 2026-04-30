@@ -22,6 +22,8 @@ const (
 	RequestCancelGame           MessageType = "cancel_game"
 	RequestAddFriend            MessageType = "add_friend"
 	RequestAcceptFriendRequest  MessageType = "accept_friend_request"
+	RequestInviteToLobby        MessageType = "invite_to_lobby"
+	RequestDeclineInvite        MessageType = "decline_invite"
 	RequestAddBotToLobby        MessageType = "add_bot_to_lobby"
 	RequestRemoveBotFromLobby   MessageType = "remove_bot_from_lobby"
 	RequestAddBotFriend         MessageType = "add_bot_friend"    //TODO
@@ -162,6 +164,19 @@ type SendLobbyChatMessageRequest struct {
 	LobbyID  string      `json:"lobbyID"`
 	PlayerID string      `json:"playerID"`
 	Message  string      `json:"message"`
+}
+
+type InviteToLobbyRequest struct {
+	Type     MessageType `json:"type"`
+	LobbyID  string      `json:"lobbyID"`
+	PlayerID string      `json:"playerID"`
+	FriendID string      `json:"friendID"`
+}
+
+type DeclineInviteRequest struct {
+	Type     MessageType `json:"type"`
+	LobbyID  string      `json:"lobbyID"`
+	PlayerID string      `json:"playerID"`
 }
 
 type TypingRequest struct {
@@ -325,6 +340,20 @@ type PlayerTypingResponse struct {
 	PlayerID   string `json:"playerID"`
 	PlayerName string `json:"playerName"`
 	IsTyping   bool   `json:"isTyping"`
+}
+
+type InviteSentResponse struct {
+	BaseResponse
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type InviteReceivedResponse struct {
+	BaseResponse
+	LobbyID     string `json:"lobbyID"`
+	LobbyName   string `json:"lobbyName"`
+	InviterID   string `json:"inviterID"`
+	InviterName string `json:"inviterName"`
 }
 
 type ErrorResponse struct {
