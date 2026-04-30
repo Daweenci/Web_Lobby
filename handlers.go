@@ -554,6 +554,8 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 
 	go bot.Start(lobby)
 
+	// Bot successfully added — now broadcast
+	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
 }
@@ -568,16 +570,24 @@ func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
 	}
 
 	lobby.Lock.Lock()
+	removed := false
 	for i := len(lobby.Bots) - 1; i >= 0; i-- {
 		if lobby.Bots[i].ID == msg.BotID {
-			// Close the bot's queue so its goroutine exits cleanly
 			close(lobby.Bots[i].MessageQueue)
 			lobby.Bots = append(lobby.Bots[:i], lobby.Bots[i+1:]...)
+			removed = true
 			break
 		}
 	}
 	lobby.Lock.Unlock()
 
+	if !removed {
+		log.Println("removeBotFromLobbyHandler: Bot not found")
+		return
+	}
+
+	// Bot successfully removed — now broadcast
+	broadcastBotLeft(lobby, msg.BotID)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
 }

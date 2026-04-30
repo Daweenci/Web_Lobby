@@ -22,14 +22,13 @@ const (
 	RequestCancelGame           MessageType = "cancel_game"
 	RequestAddFriend            MessageType = "add_friend"
 	RequestAcceptFriendRequest  MessageType = "accept_friend_request"
-	RequestAddBotToLobby        MessageType = "add_bot_to_lobby"        //TODO
-	RequestRemoveBotFromLobby   MessageType = "remove_bot_from_lobby"   //TODO
-	RequestAddBotFriend         MessageType = "add_bot_friend"          //TODO
-	RequestRemoveBotFriend      MessageType = "remove_bot_friend"       //TODO
-	RequestInviteBotFriend      MessageType = "invite_bot_friend"       //TODO
-	RequestStartedTyping        MessageType = "started_typing"          //TODO
-	RequestStoppedTyping        MessageType = "stopped_typing"          //TODO
-	RequestSendLobbyChatMessage MessageType = "send_lobby_chat_message" //TODO
+	RequestAddBotToLobby        MessageType = "add_bot_to_lobby"
+	RequestRemoveBotFromLobby   MessageType = "remove_bot_from_lobby"
+	RequestAddBotFriend         MessageType = "add_bot_friend"    //TODO
+	RequestRemoveBotFriend      MessageType = "remove_bot_friend" //TODO
+	RequestInviteBotFriend      MessageType = "invite_bot_friend" //TODO
+	RequestStartedTyping        MessageType = "started_typing"
+	RequestSendLobbyChatMessage MessageType = "send_lobby_chat_message"
 
 	ResponseWelcome               MessageType = "welcome"
 	ResponseLoginSuccessful       MessageType = "login_successful"
@@ -53,17 +52,17 @@ const (
 	ResponseBotLeft               MessageType = "bot_left"           //TODO
 	ResponseBotFriendAdded        MessageType = "bot_friend_added"   //TODO
 	ResponseBotFriendRemoved      MessageType = "bot_friend_removed" //TODO
-	ResponsePlayerTyping          MessageType = "player_typing"      //TODO
-	ResponseLobbyChatMessage      MessageType = "lobby_chat_message" //TODO
+	ResponsePlayerTyping          MessageType = "player_typing"
+	ResponseLobbyChatMessage      MessageType = "lobby_chat_message"
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
 )
 
 type Bot struct {
-	ID                      string          `json:"id"`
-	Name                    string          `json:"name"`
-	SystemPromptPersonality string          `json:"systemPromptPersonality"`
-	MessageQueue            chan BotMessage `json:"botMessageQueue"`
+	ID                      string
+	Name                    string
+	SystemPromptPersonality string
+	MessageQueue            chan BotMessage
 }
 
 type BotDTO struct {
@@ -72,7 +71,7 @@ type BotDTO struct {
 }
 
 type BotMessage struct { //To the bot, not from the bot
-	LobbyID string `json:"lobbyID"`
+	LobbyID string
 }
 
 type LobbyChatMessage struct {

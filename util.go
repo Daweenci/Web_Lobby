@@ -20,6 +20,7 @@ func getLobbiesList() []LobbyDTO {
 			MaxPlayers: l.MaxPlayers,
 			IsPrivate:  l.IsPrivate,
 			Players:    toPlayerResponses(l.Players),
+			Bots:       toBotResponses(l.Bots),
 			GameStart:  l.GameStart,
 		})
 	}

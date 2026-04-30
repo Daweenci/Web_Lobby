@@ -114,3 +114,31 @@ func broadcastTyping(lobby *Lobby, playerID string, playerName string, isTyping 
 		sendResponse(player, response)
 	}
 }
+
+func broadcastBotJoined(lobby *Lobby, bot *Bot) {
+	lobby.Lock.RLock()
+	playersCopy := make([]*Player, len(lobby.Players))
+	copy(playersCopy, lobby.Players)
+	lobby.Lock.RUnlock()
+
+	for _, p := range playersCopy {
+		sendResponse(p, BotJoinedResponse{
+			BaseResponse: newBaseResponse(ResponseBotJoined),
+			Bot:          BotDTO{ID: bot.ID, Name: bot.Name},
+		})
+	}
+}
+
+func broadcastBotLeft(lobby *Lobby, botID string) {
+	lobby.Lock.RLock()
+	playersCopy := make([]*Player, len(lobby.Players))
+	copy(playersCopy, lobby.Players)
+	lobby.Lock.RUnlock()
+
+	for _, p := range playersCopy {
+		sendResponse(p, BotLeftResponse{
+			BaseResponse: newBaseResponse(ResponseBotLeft),
+			BotID:        botID,
+		})
+	}
+}
