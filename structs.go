@@ -22,6 +22,11 @@ const (
 	RequestCancelGame          MessageType = "cancel_game"
 	RequestAddFriend           MessageType = "add_friend"
 	RequestAcceptFriendRequest MessageType = "accept_friend_request"
+	RequestAddBotToLobby       MessageType = "add_bot_to_lobby"      //TODO
+	RequestRemoveBotFromLobby  MessageType = "remove_bot_from_lobby" //TODO
+	RequestAddBotFriend        MessageType = "add_bot_friend"        //TODO
+	RequestRemoveBotFriend     MessageType = "remove_bot_friend"     //TODO
+	RequestInviteBotFriend     MessageType = "invite_bot_friend"     //TODO
 
 	ResponseWelcome               MessageType = "welcome"
 	ResponseLoginSuccessful       MessageType = "login_successful"
@@ -39,9 +44,27 @@ const (
 	ResponseFriendRequestReceived MessageType = "friend_request_received"
 	ResponseFriendRequestAccepted MessageType = "friend_request_accepted"
 	ResponseFriendOnlineStatus    MessageType = "friend_online_status"
+	ResponseInviteReceived        MessageType = "invite_received"    //TODO
+	ResponseInviteSent            MessageType = "invite_sent"        //TODO
+	ResponseBotJoined             MessageType = "bot_joined"         //TODO
+	ResponseBotLeft               MessageType = "bot_left"           //TODO
+	ResponseBotFriendAdded        MessageType = "bot_friend_added"   //TODO
+	ResponseBotFriendRemoved      MessageType = "bot_friend_removed" //TODO
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
 )
+
+type Bot struct {
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	SystemPrompt string          `json:"systemPrompt"`
+	MessageQueue chan BotMessage `json:"botMessageQueue"`
+}
+
+type BotMessage struct {
+	LobbyID string `json:"lobbyID"`
+	Content string `json:"content"`
+}
 
 type Player struct {
 	ID   string
@@ -138,6 +161,7 @@ type Lobby struct {
 	IsPrivate  bool
 	Password   string
 	Players    []*Player
+	Bots       []*Bot
 	GameStart  []PlayerStarted
 	Lock       sync.RWMutex
 }
@@ -173,6 +197,7 @@ type LobbyDTO struct {
 	MaxPlayers int             `json:"maxPlayers"`
 	IsPrivate  bool            `json:"isPrivate"`
 	Players    []PlayerDTO     `json:"players"`
+	Bots       []Bot           `json:"bots"`
 	GameStart  []PlayerStarted `json:"gameStart"`
 }
 
