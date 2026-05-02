@@ -125,6 +125,7 @@ doneLeaving:
 	sendResponse(player, SuccessfulJoinLobbyResponse{
 		BaseResponse: newBaseResponse(ResponseJoinLobbySuccessful),
 		Lobby:        lobbyResponse,
+		ChatHistory:  lobby.ChatHistory,
 	})
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
@@ -532,13 +533,18 @@ func typingHandler(msg TypingRequest) {
 		return
 	}
 
+	if !msg.IsTyping {
+		stopTyping(msg.PlayerID, lobby)
+		return
+	}
+
 	broadcastTyping(lobby, msg.PlayerID, player.Name, true)
 
 	typingTimersLock.Lock()
 	if timer, exists := typingTimers[msg.PlayerID]; exists {
 		timer.Stop()
 	}
-	typingTimers[msg.PlayerID] = time.AfterFunc(3*time.Second, func() {
+	typingTimers[msg.PlayerID] = time.AfterFunc(5*time.Second, func() { //Fallback falls Frontend nicht selbst ein Signal zum Stoppen schickt
 		stopTyping(msg.PlayerID, lobby)
 	})
 	typingTimersLock.Unlock()

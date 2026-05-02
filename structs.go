@@ -184,6 +184,7 @@ type TypingRequest struct {
 	Type     MessageType `json:"type"`
 	LobbyID  string      `json:"lobbyID"`
 	PlayerID string      `json:"playerID"`
+	IsTyping bool        `json:"isTyping"`
 }
 
 type StartGame struct { //TODO: Why StartGame not response or request?
@@ -274,7 +275,8 @@ type RemoveBotFromLobbyRequest struct {
 
 type SuccessfulJoinLobbyResponse struct {
 	BaseResponse
-	Lobby LobbyDTO `json:"lobby"`
+	Lobby       LobbyDTO           `json:"lobby"`
+	ChatHistory []LobbyChatMessage `json:"chatHistory"` //TODO and not in DTO cuz people outside the lobby shouldnt know the chat history
 }
 
 type CreateLobbyResponse struct {

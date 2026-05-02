@@ -286,6 +286,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			msg.PlayerID = player.ID
 			declineInviteHandler(msg)
+
 		default:
 			sendErrorToPlayer(player, "Unknown message type")
 		}
