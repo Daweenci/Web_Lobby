@@ -75,8 +75,6 @@ CREATE TABLE IF NOT EXISTS bot_friends (
 
 );
 
-CREATE INDEX IF NOT EXISTS idx_bot_friends_creator ON bot_friends(creator_id);
-
 
 CREATE TABLE IF NOT EXISTS bot_friend_lists (
     player_id TEXT NOT NULL,

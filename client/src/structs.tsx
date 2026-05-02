@@ -36,8 +36,8 @@ export type broadcastedLobby = {
 };
 
 export type friendRequest = {
-  friendID: string;
-  friendName: string;
+  id: string;
+  name: string;
 };
 
 export type LobbyInvite = {

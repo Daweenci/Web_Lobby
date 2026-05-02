@@ -146,10 +146,12 @@ export default function useWebSocket({
           break;
 
         case MessageTypes.ResponseFriendRequestReceived:
+          onSetPendingFriendRequests(prev => [...prev, { id: data.player.id, name: data.player.name }]);
           toast(data.player.name + ' sent you a friend request');
           break;
 
         case MessageTypes.ResponseFriendRequestAccepted:
+          onSetFriendsList(prev => [...prev, data.friend]);
           toast('Friend request accepted by ' + data.friend.name);
           break;
 

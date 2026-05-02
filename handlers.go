@@ -336,9 +336,12 @@ func sendFriendRequestHandler(msg AddFriendRequest) {
 		return
 	}
 
-	sendResponse(friend, PendingFriendRequestsResponse{
-		BaseResponse:          newBaseResponse(ResponsePendingFriendRequests),
-		PendingFriendRequests: getPendingFriendRequests(friendID),
+	sendResponse(friend, FriendRequestReceivedResponse{
+		BaseResponse: newBaseResponse(ResponseFriendRequestReceived),
+		Player: PlayerDTO{
+			ID:   player.ID,
+			Name: player.Name,
+		},
 	})
 }
 

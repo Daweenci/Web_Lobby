@@ -105,11 +105,11 @@ export default function UserProfile({
                     ref={friendInputRef}
                     type="text"
                     placeholder="Enter player name..."
-                    className="flex-1 border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     onClick={() => onAddFriend(friendInputRef.current?.value || '')}
-                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition duration-200 whitespace-nowrap"
+                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition duration-200 text-sm whitespace-nowrap"
                   >
                     Add
                   </button>
@@ -121,18 +121,18 @@ export default function UserProfile({
                 ) : (
                   <ul className="w-full flex flex-col gap-1">
                     {pendingFriendRequests.map((req) => (
-                      <li key={req.friendID} className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-gray-600">{req.friendName}</span>
+                      <li key={req.id} className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-gray-600">{req.name}</span>
                         <div className="flex gap-1">
                           <button
                             className="bg-green-500 text-white text-xs px-2 py-1 rounded hover:bg-green-600 transition"
-                            onClick={() => onAcceptFriendRequest(req.friendID, true)}
+                            onClick={() => onAcceptFriendRequest(req.id, true)}
                           >
                             ✓
                           </button>
                           <button
                             className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition"
-                            onClick={() => onAcceptFriendRequest(req.friendID, false)}
+                            onClick={() => onAcceptFriendRequest(req.id, false)}
                           >
                             ✕
                           </button>
