@@ -84,7 +84,7 @@ func broadcastLobbyChatMessage(lobby *Lobby, msg LobbyChatMessage) {
 		LobbyID:      lobby.ID,
 		SenderName:   msg.SenderName,
 		SenderID:     msg.SenderID,
-		Content:      msg.Message,
+		Content:      msg.Content,
 		IsBot:        msg.IsBot,
 	}
 

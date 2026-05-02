@@ -145,10 +145,44 @@ export default function useWebSocket({
           toast(data.message);
           break;
 
-        case MessageTypes.ResponseFriendRequestReceived:
-          onSetPendingFriendRequests(prev => [...prev, { id: data.player.id, name: data.player.name }]);
-          toast(data.player.name + ' sent you a friend request');
+        case MessageTypes.ResponseFriendRequestReceived: {
+          const request = { id: data.player.id, name: data.player.name };
+          onSetPendingFriendRequests(prev => [...prev, request]);
+
+          const toastID = `friend-request-${data.player.id}`;
+
+          toast.custom(
+            () => (
+              <div className="flex flex-col gap-2 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 min-w-[280px]">
+                <p className="text-sm text-gray-800">
+                  <strong>{data.player.name}</strong> sent you a friend request
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      acceptFriendRequest(data.player.id, true);
+                      toast.dismiss(toastID);
+                    }}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => {
+                      acceptFriendRequest(data.player.id, false);
+                      toast.dismiss(toastID);
+                    }}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-3 py-1.5 rounded-lg transition"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ),
+            { id: toastID, duration: Infinity }
+          );
           break;
+        }
 
         case MessageTypes.ResponseFriendRequestAccepted:
           onSetFriendsList(prev => [...prev, data.friend]);
@@ -176,6 +210,7 @@ export default function useWebSocket({
           onSetPendingInvites(prev => [...prev, invite]);
 
           const toastID = `invite-${data.lobbyID}`;
+
           toast.custom(
             (t) => (
               <div className="flex flex-col gap-2 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 min-w-[280px]">
@@ -186,7 +221,7 @@ export default function useWebSocket({
                   <button
                     onClick={() => {
                       joinLobbyRef.current(data.lobbyID, '');
-                      toast.dismiss(t);
+                      toast.dismiss(toastID);
                     }}
                     className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition"
                   >
@@ -195,7 +230,7 @@ export default function useWebSocket({
                   <button
                     onClick={() => {
                       declineInviteRef.current(data.lobbyID);
-                      toast.dismiss(t);
+                      toast.dismiss(toastID);
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-3 py-1.5 rounded-lg transition"
                   >
@@ -204,7 +239,7 @@ export default function useWebSocket({
                 </div>
               </div>
             ),
-            { id: toastID, duration: 15000 }
+            { id: toastID, duration: 4000 }
           );
           break;
         }
@@ -322,8 +357,8 @@ export default function useWebSocket({
   const removeBotFromLobby = (lobbyID: string, botID: string) =>
     sendMessage({ type: MessageTypes.RequestRemoveBotFromLobby, lobbyID, botID });
 
-  const sendLobbyChatMessage = (lobbyID: string, message: string) =>
-    sendMessage({ type: MessageTypes.RequestSendLobbyChatMessage, lobbyID, message });
+  const sendLobbyChatMessage = (lobbyID: string, content: string) =>
+    sendMessage({ type: MessageTypes.RequestSendLobbyChatMessage, lobbyID, content });
 
   const startedTyping = (lobbyID: string) =>
     sendMessage({ type: MessageTypes.RequestStartedTyping, lobbyID, isTyping: true });

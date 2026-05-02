@@ -80,6 +80,7 @@ export default function MainMenu({
             friendsList={friendsList}
             pendingInvites={pendingInvites}
             onDeclineInvite={declineInvite}
+            onJoinLobby={(lobbyID) => joinLobby(lobbyID, '')}
           />
         </div>
       </div>

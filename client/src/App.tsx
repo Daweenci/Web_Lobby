@@ -60,7 +60,7 @@ export default function App() {
   const handleDeclineInvite = (lobbyID: string) => declineInvite(lobbyID);
   const handleAddBotToLobby = () => addBotToLobby(lobby.id);
   const handleRemoveBotFromLobby = (botID: string) => removeBotFromLobby(lobby.id, botID);
-  const handleSendLobbyChatMessage = (message: string) => sendLobbyChatMessage(lobby.id, message);
+  const handleSendLobbyChatMessage = (content: string) => sendLobbyChatMessage(lobby.id, content);
   const handleStartedTyping = () => startedTyping(lobby.id);
   const handleStoppedTyping = () => stoppedTyping(lobby.id);
 

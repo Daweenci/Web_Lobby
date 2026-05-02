@@ -498,7 +498,7 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 		SenderID:   player.ID,
 		SenderName: player.Name,
 		IsBot:      false,
-		Message:    msg.Message,
+		Content:    msg.Content,
 	}
 	lobby.Lock.Lock()
 	lobby.ChatHistory = append(lobby.ChatHistory, chatMsg)

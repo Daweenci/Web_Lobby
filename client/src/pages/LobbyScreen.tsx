@@ -14,7 +14,7 @@ type LobbyScreenProps = {
   inviteToLobby: (friendID: string) => void;
   addBotToLobby: () => void;
   removeBotFromLobby: (botID: string) => void;
-  sendLobbyChatMessage: (message: string) => void;
+  sendLobbyChatMessage: (content: string) => void;
   startedTyping: () => void;
   stoppedTyping: () => void;
 };
@@ -42,7 +42,7 @@ export default function LobbyScreen({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when new messages arrive, not sure wether to keep
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);

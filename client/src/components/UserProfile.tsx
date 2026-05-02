@@ -11,6 +11,7 @@ type Props = {
   onAcceptFriendRequest: (friendID: string, accept: boolean) => void;
   pendingInvites: LobbyInvite[];
   onDeclineInvite: (lobbyID: string) => void;
+  onJoinLobby: (lobbyID: string) => void;
 };
 
 export default function UserProfile({
@@ -22,6 +23,7 @@ export default function UserProfile({
   onAcceptFriendRequest,
   pendingInvites,
   onDeclineInvite,
+  onJoinLobby,
 }: Props) {
   type View = "menu" | "friends" | "invites" | "settings" | null;
   const [view, setView] = useState<View>(null);
@@ -179,12 +181,21 @@ export default function UserProfile({
                         <span className="text-sm text-gray-800">
                           <strong>{invite.inviterName}</strong> → <strong>{invite.lobbyName}</strong>
                         </span>
-                        <button
-                          onClick={() => onDeclineInvite(invite.lobbyID)}
-                          className="self-end text-xs text-gray-400 hover:text-red-500 transition"
-                        >
-                          Dismiss
-                        </button>
+                        <div className="flex justify-end gap-2 mt-1">
+                          <button
+                            onClick={() => onJoinLobby(invite.lobbyID)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded transition"
+                          >
+                            Join
+                          </button>
+
+                          <button
+                            onClick={() => onDeclineInvite(invite.lobbyID)}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded transition"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

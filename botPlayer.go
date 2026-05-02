@@ -35,7 +35,7 @@ func (bot *Bot) Start(lobby *Lobby) {
 			SenderID:   bot.ID,
 			SenderName: bot.Name,
 			IsBot:      true,
-			Message:    response,
+			Content:    response,
 		}
 
 		lobby.Lock.Lock()
@@ -69,7 +69,7 @@ Never break character. You are a real player, not an AI.`
 		contents[i] = map[string]any{
 			"role": "user",
 			"parts": []map[string]any{
-				{"text": fmt.Sprintf("%s: %s", msg.SenderName, msg.Message)},
+				{"text": fmt.Sprintf("%s: %s", msg.SenderName, msg.Content)},
 			},
 		}
 	}

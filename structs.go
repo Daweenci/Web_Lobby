@@ -81,7 +81,7 @@ type LobbyChatMessage struct {
 	SenderID   string `json:"senderID"`
 	SenderName string `json:"senderName"`
 	IsBot      bool   `json:"isBot"`
-	Message    string `json:"message"`
+	Content    string `json:"content"`
 }
 
 type Player struct {
@@ -164,7 +164,7 @@ type SendLobbyChatMessageRequest struct {
 	Type     MessageType `json:"type"`
 	LobbyID  string      `json:"lobbyID"`
 	PlayerID string      `json:"playerID"`
-	Message  string      `json:"message"`
+	Content  string      `json:"content"`
 }
 
 type InviteToLobbyRequest struct {
