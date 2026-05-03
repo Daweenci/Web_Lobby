@@ -14,6 +14,17 @@ export default function useWebSocket() {
   const getAuthToken = () => localStorage.getItem('gameToken');
   const clearAuthToken = () => localStorage.removeItem('gameToken');
 
+  const getPlayersLeft = (prev: Player[] = [], next: Player[] = []) => {
+    return prev.filter(
+      (p) => !next.some((player) => player.id === p.id)
+    );
+  };
+
+  const getPlayersJoined = (prev: Player[] = [], next: Player[] = []) => {
+    return next.filter(
+      (p) => !prev.some((pp) => pp.id === p.id)
+    );
+  };
   useEffect(() => {
     const handleUnload = () => {
       if (!ws.current) return;
@@ -93,9 +104,35 @@ export default function useWebSocket() {
           toast(data.message || 'Failed to join lobby');
           break;
 
-        case MessageTypes.ResponseLobbyUpdated:
-          useStore.getState().setLobby(data.lobby);
+        case MessageTypes.ResponseLobbyUpdated: {
+          const store = useStore.getState();
+
+          const prevLobby = store.lobby;
+          const newLobby = data.lobby;
+
+          if (prevLobby.id === newLobby.id) {
+            const leftPlayers = getPlayersLeft(
+              prevLobby.players,
+              newLobby.players
+            );
+
+            const joinedPlayers = getPlayersJoined(
+              prevLobby.players,
+              newLobby.players
+            );
+
+            leftPlayers.forEach((p) => {
+              toast(`${p.name} left the lobby`);
+            });
+
+            joinedPlayers.forEach((p) => {
+              toast(`${p.name} joined the lobby`);
+            });
+          }
+
+          store.setLobby(newLobby);
           break;
+        }
 
         case MessageTypes.ResponseLobbyLeft:
           useStore.getState().resetLobbyState(Page.MainMenu);
