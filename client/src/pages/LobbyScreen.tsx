@@ -1,13 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { Friend, yourLobby, ChatMessage, TypingPlayer } from '@/structs';
+import type { Friend } from '@/structs';
 import inviteIcon from "@/assets/invite.svg";
+import { useStore, type Store } from '@/store';
+import { useShallow } from 'zustand/react/shallow';
 
 type LobbyScreenProps = {
-  lobby: yourLobby;
-  currentPlayerID: string;
-  friendsList: Friend[];
-  chatMessages: ChatMessage[];
-  typingPlayers: TypingPlayer[];
   startGame: () => void;
   cancelGame: () => void;
   leaveLobby: () => void;
@@ -20,11 +17,6 @@ type LobbyScreenProps = {
 };
 
 export default function LobbyScreen({
-  lobby,
-  currentPlayerID,
-  friendsList,
-  chatMessages,
-  typingPlayers,
   startGame,
   cancelGame,
   leaveLobby,
@@ -35,6 +27,15 @@ export default function LobbyScreen({
   startedTyping,
   stoppedTyping,
 }: LobbyScreenProps) {
+  const { lobby, currentPlayer, chatMessages, typingPlayers, friendsList } = useStore(
+    useShallow((state: Store) => ({
+      lobby: state.lobby,
+      currentPlayer: state.player,
+      chatMessages: state.chatMessages,
+      typingPlayers: state.typingPlayers,
+      friendsList: state.friendsList,
+    }))
+  );
   const [gameStarting, setGameStarting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -125,7 +126,7 @@ export default function LobbyScreen({
               {lobby.players?.map((player) => (
                 <li key={player.id} className="flex items-center gap-2 text-sm">
                   <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                  <span className={player.id === currentPlayerID ? 'font-semibold' : ''}>
+                  <span className={player.id === currentPlayer.id ? 'font-semibold' : ''}>
                     {player.name}
                   </span>
                 </li>
@@ -216,7 +217,7 @@ export default function LobbyScreen({
               <p className="text-sm text-gray-400 text-center mt-4">No messages yet. Say hi!</p>
             )}
             {chatMessages.map((msg, index) => {
-              const isOwn = msg.senderID === currentPlayerID;
+              const isOwn = msg.senderID === currentPlayer.id;
               return (
                 <div
                   key={index}

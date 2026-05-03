@@ -1,40 +1,30 @@
 // MainMenu.tsx
 import { Button } from '@/components/ui/button';
 import React, { useState } from 'react';
-import type { broadcastedLobby, Friend, friendRequest, LobbyInvite } from '@/structs';
 import CreateLobbyModal from './CreateLobbyModal';
 import JoinPasswordModal from './JoinPasswordModal';
 import { toast } from 'sonner';
 import UserProfile from '@/components/UserProfile';
+import { useStore } from '@/store';
 
 type MainMenuProps = {
   createLobby: (name: string, maxPlayers: number, isPrivate: boolean, password: string) => void;
   joinLobby: (id: string, joinPassword: string) => void;
-  lobbies: broadcastedLobby[];
-  currentPlayerID: string;
-  playerName: string;
-  pendingFriendRequests: friendRequest[];
-  friendsList: Friend[];
   logout: () => void;
   addFriend: (friendName: string) => void;
   acceptFriendRequest: (friendID: string, accept: boolean) => void;
-  pendingInvites: LobbyInvite[];
   declineInvite: (lobbyID: string) => void;
 };
 
 export default function MainMenu({
   createLobby,
   joinLobby,
-  lobbies,
-  playerName,
-  pendingFriendRequests,
-  friendsList,
   logout,
   addFriend,
   acceptFriendRequest,
-  pendingInvites,
   declineInvite,
 }: MainMenuProps) {
+  const lobbies = useStore((state) => (state.broadcastedLobbies));
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedLobbyId, setSelectedLobbyId] = useState('');
@@ -72,13 +62,9 @@ export default function MainMenu({
         <h1 className="text-4xl font-bold text-center">Main Menu</h1>
         <div className="absolute top-4 right-6">
           <UserProfile
-            playerName={playerName}
             onLogout={logout}
             onAddFriend={addFriend}
-            pendingFriendRequests={pendingFriendRequests}
             onAcceptFriendRequest={acceptFriendRequest}
-            friendsList={friendsList}
-            pendingInvites={pendingInvites}
             onDeclineInvite={declineInvite}
             onJoinLobby={(lobbyID) => joinLobby(lobbyID, '')}
           />

@@ -1,30 +1,33 @@
 import { useState, useRef } from "react";
 import profileIcon from "@/assets/user-profile-icon.svg";
-import type { Friend, friendRequest, LobbyInvite } from "@/structs";
+import { useStore } from "@/store";
+import { useShallow } from "zustand/react/shallow";
+import type { Store } from "@/store";
+
 
 type Props = {
-  playerName: string;
   onLogout: () => void;
   onAddFriend: (friendName: string) => void;
-  pendingFriendRequests: friendRequest[];
-  friendsList: Friend[];
   onAcceptFriendRequest: (friendID: string, accept: boolean) => void;
-  pendingInvites: LobbyInvite[];
   onDeclineInvite: (lobbyID: string) => void;
   onJoinLobby: (lobbyID: string) => void;
 };
 
 export default function UserProfile({
-  playerName,
   onLogout,
   onAddFriend,
-  pendingFriendRequests,
-  friendsList,
   onAcceptFriendRequest,
-  pendingInvites,
   onDeclineInvite,
   onJoinLobby,
 }: Props) {
+  const { player, pendingFriendRequests, friendsList, pendingInvites } = useStore(
+    useShallow((state: Store) => ({
+      player: state.player,
+      pendingFriendRequests: state.pendingFriendRequests,
+      friendsList: state.friendsList,
+      pendingInvites: state.pendingInvites,
+    }))
+  );
   type View = "menu" | "friends" | "invites" | "settings" | null;
   const [view, setView] = useState<View>(null);
   const friendInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +44,7 @@ export default function UserProfile({
         onClick={toggleDropdown}
         className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
       >
-        <span className="text-lg font-semibold">{playerName}</span>
+        <span className="text-lg font-semibold">{player.name}</span>
         <img src={profileIcon} alt="Profile Icon" className="inline w-8 h-8 ml-1" />
         {totalNotifications > 0 && (
           <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">

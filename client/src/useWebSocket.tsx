@@ -1,11 +1,8 @@
 import { useRef, useEffect } from 'react';
-import type { yourLobby, broadcastedLobby, Player, PageType, friendRequest, Friend, LobbyInvite, ChatMessage, TypingPlayer } from './structs';
+import type { yourLobby, Player, LobbyInvite, ChatMessage} from './structs';
 import { MessageTypes, Page } from './structs';
 import { toast } from 'sonner';
 import { useStore } from './store';
-
-interface UseWebSocketProps {
-}
 
 export default function useWebSocket() {
 
@@ -81,19 +78,13 @@ export default function useWebSocket() {
           break;
 
         case MessageTypes.ResponseLobbyCreated:
-          useStore.getState().setLobby(data.lobby);
-          useStore.getState().setChatMessages([]);
-          useStore.getState().setTypingPlayers([]);
-          useStore.getState().setPage(Page.InLobby);
+          useStore.getState().enterLobby({ lobby: data.lobby });
           toast('Lobby created successfully');
           break;
 
         case MessageTypes.ResponseJoinLobbySuccessful:
-          useStore.getState().setLobby(data.lobby);
-          useStore.getState().setChatMessages(data.chatHistory || []);
-          useStore.getState().setTypingPlayers([]);
-          useStore.getState().setPage(Page.InLobby);
-          useStore.getState().addInvite(data.invite);
+          useStore.getState().enterLobby({ lobby: data.lobby, chatMessages: data.chatHistory });
+          useStore.getState().removeInvite(data.lobby.id);
           toast.dismiss();
           toast('Joined lobby successfully');
           break;
@@ -107,10 +98,7 @@ export default function useWebSocket() {
           break;
 
         case MessageTypes.ResponseLobbyLeft:
-          useStore.getState().setLobby({} as yourLobby);
-          useStore.getState().setChatMessages([]);
-          useStore.getState().setTypingPlayers([]);
-          useStore.getState().setPage(Page.MainMenu);
+          useStore.getState().resetLobbyState(Page.MainMenu);
           break;
 
         case MessageTypes.ResponsePendingFriendRequests:
@@ -236,8 +224,13 @@ export default function useWebSocket() {
           break;
 
         case MessageTypes.ResponseLobbyChatMessage:
-          useStore.getState().addChatMessage(data.message);
-          useStore.getState().removeTypingPlayer(data.message.senderID);
+          useStore.getState().addChatMessage({
+            senderID: data.senderID,
+            senderName: data.senderName,
+            content: data.content,
+            isBot: data.isBot,
+          });
+          useStore.getState().removeTypingPlayer(data.senderID);
           break;
 
         case MessageTypes.ResponsePlayerTyping:

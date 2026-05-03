@@ -2,143 +2,168 @@ import { create } from 'zustand';
 import type { broadcastedLobby, ChatMessage, Friend, friendRequest, LobbyInvite, PageType, Player, TypingPlayer, yourLobby } from './structs';
 import { Page } from './structs';
 
-interface Store {
-  player: Player;
-  broadcastedLobbies: broadcastedLobby[];
-  lobby: yourLobby;
-  pendingFriendRequests: friendRequest[];
-  friendsList: Friend[];
-  currentPage: PageType;
-  pendingInvites: LobbyInvite[];
-  chatMessages: ChatMessage[];
-  typingPlayers: TypingPlayer[];
+export interface Store {
+    player: Player;
+    broadcastedLobbies: broadcastedLobby[];
+    lobby: yourLobby;
+    pendingFriendRequests: friendRequest[];
+    friendsList: Friend[];
+    currentPage: PageType;
+    pendingInvites: LobbyInvite[];
+    chatMessages: ChatMessage[];
+    typingPlayers: TypingPlayer[];
 
-  setPlayer: (player: Player) => void;
-  setBroadcastedLobbies: (lobbies: broadcastedLobby[]) => void;
-  setLobby: (lobby: yourLobby) => void;
-  setPendingFriendRequests: (requests: friendRequest[]) => void;
-  setFriendsList: (friends: Friend[]) => void;
-  setPage: (page: PageType) => void;
-  setPendingInvites: (invites: LobbyInvite[]) => void;
-  setChatMessages: (messages: ChatMessage[]) => void;
-  setTypingPlayers: (players: TypingPlayer[]) => void;
+    setPlayer: (player: Player) => void;
+    setBroadcastedLobbies: (lobbies: broadcastedLobby[]) => void;
+    setLobby: (lobby: yourLobby) => void;
+    setPendingFriendRequests: (requests: friendRequest[]) => void;
+    setFriendsList: (friends: Friend[]) => void;
+    setPage: (page: PageType) => void;
+    setPendingInvites: (invites: LobbyInvite[]) => void;
+    setChatMessages: (messages: ChatMessage[]) => void;
+    setTypingPlayers: (players: TypingPlayer[]) => void;
 
-  addPendingFriendRequest: (request: friendRequest) => void;
-  removePendingFriendRequest: (id: string) => void;
+    enterLobby: (data: { lobby: yourLobby; chatMessages?: ChatMessage[] }) => void;
+    resetLobbyState: (page: PageType) => void;
 
-  addFriend: (friend: Friend) => void;
-  updateFriendStatus: (friend: Friend) => void;
+    addPendingFriendRequest: (request: friendRequest) => void;
+    removePendingFriendRequest: (id: string) => void;
 
-  addInvite: (invite: LobbyInvite) => void;
-  removeInvite: (lobbyID: string) => void;
+    addFriend: (friend: Friend) => void;
+    updateFriendStatus: (friend: Friend) => void;
 
-  addChatMessage: (msg: ChatMessage) => void;
-  clearChat: () => void;
+    addInvite: (invite: LobbyInvite) => void;
+    removeInvite: (lobbyID: string) => void;
 
-  addTypingPlayer: (player: TypingPlayer) => void;
-  removeTypingPlayer: (playerID: string) => void;
-  clearTypingPlayers: () => void;
+    addChatMessage: (msg: ChatMessage) => void;
+    clearChat: () => void;
 
-  addBot: (bot: any) => void;
-  removeBot: (botID: string) => void;
+    addTypingPlayer: (player: TypingPlayer) => void;
+    removeTypingPlayer: (playerID: string) => void;
+    clearTypingPlayers: () => void;
+
+    addBot: (bot: any) => void;
+    removeBot: (botID: string) => void;
 }
 
 export const useStore = create<Store>((set) => ({
-  player: {} as Player,
-  broadcastedLobbies: [],
-  lobby: {} as yourLobby,
-  pendingFriendRequests: [],
-  friendsList: [],
-  currentPage: Page.Auth,
-  pendingInvites: [],
-  chatMessages: [],
-  typingPlayers: [],
+    player: {} as Player,
+    broadcastedLobbies: [],
+    lobby: {} as yourLobby,
+    pendingFriendRequests: [],
+    friendsList: [],
+    currentPage: Page.Auth,
+    pendingInvites: [],
+    chatMessages: [],
+    typingPlayers: [],
 
-  setPlayer: (player) => set({ player }),
-  setBroadcastedLobbies: (lobbies) => set({ broadcastedLobbies: lobbies }),
-  setLobby: (lobby) => set({ lobby }),
-  setPendingFriendRequests: (requests) => set({ pendingFriendRequests: requests }),
-  setFriendsList: (friends) => set({ friendsList: friends }),
-  setPage: (page) => set({ currentPage: page }),
-  setPendingInvites: (invites) => set({ pendingInvites: invites }),
-  setChatMessages: (messages) => set({ chatMessages: messages }),
-  setTypingPlayers: (players) => set({ typingPlayers: players }),
+    setPlayer: (player) => set({ player }),
+    setBroadcastedLobbies: (lobbies) => set({ broadcastedLobbies: lobbies }),
+    setLobby: (lobby) => set({ lobby }),
+    setPendingFriendRequests: (requests) => set({ pendingFriendRequests: requests }),
+    setFriendsList: (friends) => set({ friendsList: friends }),
+    setPage: (page) => set({ currentPage: page }),
+    setPendingInvites: (invites) => set({ pendingInvites: invites }),
+    setChatMessages: (messages) => set({ chatMessages: messages }),
+    setTypingPlayers: (players) => set({ typingPlayers: players }),
 
-  addPendingFriendRequest: (request) =>
-    set((state) => ({
-      pendingFriendRequests: [...state.pendingFriendRequests, request],
-    })),
+    enterLobby: ({
+        lobby,
+        chatMessages,
+        }: {
+        lobby: yourLobby;
+        chatMessages?: ChatMessage[];
+        }) =>
+        set({
+            lobby,
+            chatMessages: chatMessages ?? [],
+            typingPlayers: [],
+            currentPage: Page.InLobby,
+        }),
 
-  removePendingFriendRequest: (id) =>
-    set((state) => ({
-      pendingFriendRequests: state.pendingFriendRequests.filter((r) => r.id !== id),
-    })),
+    resetLobbyState: (page: PageType) =>
+        set({
+            lobby: {} as yourLobby,
+            chatMessages: [],
+            typingPlayers: [],
+            currentPage: page,
+        }),
 
-  addFriend: (friend) =>
-    set((state) => ({
-      friendsList: [...state.friendsList, friend],
-    })),
+    addPendingFriendRequest: (request) =>
+        set((state) => ({
+        pendingFriendRequests: [...state.pendingFriendRequests, request],
+        })),
 
-  updateFriendStatus: (friend) =>
-    set((state) => ({
-      friendsList: state.friendsList.map((f) =>
-        f.id === friend.id ? { ...f, isOnline: friend.isOnline } : f
-      ),
-    })),
+    removePendingFriendRequest: (id) =>
+        set((state) => ({
+        pendingFriendRequests: state.pendingFriendRequests.filter((r) => r.id !== id),
+        })),
 
-  addInvite: (invite) =>
-    set((state) => ({
-      pendingInvites: [...state.pendingInvites, invite],
-    })),
+    addFriend: (friend) =>
+        set((state) => ({
+        friendsList: [...state.friendsList, friend],
+        })),
 
-  removeInvite: (lobbyID) =>
-    set((state) => ({
-      pendingInvites: state.pendingInvites.filter((i) => i.lobbyID !== lobbyID),
-    })),
+    updateFriendStatus: (friend) =>
+        set((state) => ({
+        friendsList: state.friendsList.map((f) =>
+            f.id === friend.id ? { ...f, isOnline: friend.isOnline } : f
+        ),
+        })),
 
-  addChatMessage: (msg) =>
-    set((state) => ({
-      chatMessages: [...state.chatMessages, msg],
-    })),
+    addInvite: (invite) =>
+        set((state) => ({
+        pendingInvites: [...state.pendingInvites, invite],
+        })),
 
-  clearChat: () => set({ chatMessages: [] }),
+    removeInvite: (lobbyID) =>
+        set((state) => ({
+        pendingInvites: state.pendingInvites.filter((i) => i.lobbyID !== lobbyID),
+        })),
 
-  addTypingPlayer: (player) =>
-    set((state) => {
-      if (state.typingPlayers.find((p) => p.playerID === player.playerID)) {
-        return state;
-      }
-      return {
-        typingPlayers: [...state.typingPlayers, player],
-      };
-    }),
+    addChatMessage: (msg) =>
+        set((state) => ({
+        chatMessages: [...state.chatMessages, msg],
+        })),
 
-  removeTypingPlayer: (playerID) =>
-    set((state) => ({
-      typingPlayers: state.typingPlayers.filter((p) => p.playerID !== playerID),
-    })),
+    clearChat: () => set({ chatMessages: [] }),
 
-  clearTypingPlayers: () => set({ typingPlayers: [] }),
+    addTypingPlayer: (player) =>
+        set((state) => {
+        if (state.typingPlayers.find((p) => p.playerID === player.playerID)) {
+            return state;
+        }
+        return {
+            typingPlayers: [...state.typingPlayers, player],
+        };
+        }),
 
-  addBot: (bot) =>
-    set((state) => {
-      if (!state.lobby) return state;
-      return {
-        lobby: {
-          ...state.lobby,
-          bots: [...state.lobby.bots, bot],
-        },
-      };
-    }),
+    removeTypingPlayer: (playerID) =>
+        set((state) => ({
+        typingPlayers: state.typingPlayers.filter((p) => p.playerID !== playerID),
+        })),
 
-  removeBot: (botID) =>
-    set((state) => {
-      if (!state.lobby) return state;
-      return {
-        lobby: {
-          ...state.lobby,
-          bots: state.lobby.bots.filter((b) => b.id !== botID),
-        },
-      };
-    }),
+    clearTypingPlayers: () => set({ typingPlayers: [] }),
+
+    addBot: (bot) =>
+        set((state) => {
+        if (!state.lobby) return state;
+        return {
+            lobby: {
+            ...state.lobby,
+            bots: [...state.lobby.bots, bot],
+            },
+        };
+        }),
+
+    removeBot: (botID) =>
+        set((state) => {
+            if (!state.lobby) return state;
+            return {
+                lobby: {
+                ...state.lobby,
+                bots: state.lobby.bots.filter((b) => b.id !== botID),
+                },
+            };
+        }),
 }));
