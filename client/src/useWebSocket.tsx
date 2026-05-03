@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import type { yourLobby, Player, LobbyInvite, ChatMessage} from './structs';
+import type { yourLobby, Player, LobbyInvite } from './structs';
 import { MessageTypes, Page } from './structs';
 import { toast } from 'sonner';
 import { useStore } from './store';
@@ -25,16 +25,16 @@ export default function useWebSocket() {
       (p) => !prev.some((pp) => pp.id === p.id)
     );
   };
+
   useEffect(() => {
     const handleUnload = () => {
       if (!ws.current) return;
-      ws.current.onclose = () => {};
+      ws.current.onclose = null;
       ws.current.close();
     };
     window.addEventListener('beforeunload', handleUnload);
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
-      ws.current?.close();
     };
   }, []);
 
@@ -46,6 +46,10 @@ export default function useWebSocket() {
     ) return;
 
     if (ws.current) {
+      ws.current.onopen = null;
+      ws.current.onmessage = null;
+      ws.current.onerror = null;
+      ws.current.onclose = null;
       ws.current.close();
       ws.current = null;
     }
@@ -58,18 +62,19 @@ export default function useWebSocket() {
     }
 
     const wsUrl = import.meta.env.REACT_APP_WS_URL || 'ws://localhost:4000/ws';
-    ws.current = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl);
+    ws.current = socket;
 
-    ws.current.onopen = () => {
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        ws.current.send(JSON.stringify({
-          type: MessageTypes.RequestAuthentication,
-          token: token,
-        }));
-      }
+    socket.onopen = () => {
+      if (ws.current !== socket) return;
+      socket.send(JSON.stringify({
+        type: MessageTypes.RequestAuthentication,
+        token: token,
+      }));
     };
 
-    ws.current.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws.current !== socket) return;
       const data = JSON.parse(event.data);
       console.log('WebSocket message received:', data);
 
@@ -287,12 +292,14 @@ export default function useWebSocket() {
       }
     };
 
-    ws.current.onerror = (err) => {
+    socket.onerror = (err) => {
+      if (ws.current !== socket) return;
       console.error('WebSocket error:', err);
       toast('Connection error');
     };
 
-    ws.current.onclose = (event) => {
+    socket.onclose = (event) => {
+      if (ws.current !== socket) return;
       console.log('WebSocket closed', event.code, event.reason);
       ws.current = null;
       if (event.code === 1008) {
@@ -362,7 +369,14 @@ export default function useWebSocket() {
 
   const logout = () => {
     clearAuthToken();
-    ws.current?.close();
+    if (ws.current) {
+      ws.current.onopen = null;
+      ws.current.onmessage = null;
+      ws.current.onerror = null;
+      ws.current.onclose = null;
+      ws.current.close();
+      ws.current = null;
+    }
     useStore.getState().setPlayer({} as Player);
     useStore.getState().setLobby({} as yourLobby);
     useStore.getState().setBroadcastedLobbies([]);
@@ -372,6 +386,17 @@ export default function useWebSocket() {
   useEffect(() => {
     const token = getAuthToken();
     if (token) connect();
+
+    return () => {
+      if (ws.current) {
+        ws.current.onopen = null;
+        ws.current.onmessage = null;
+        ws.current.onerror = null;
+        ws.current.onclose = null;
+        ws.current.close();
+        ws.current = null;
+      }
+    };
   }, []);
 
   return {
