@@ -76,6 +76,11 @@ export default function App() {
                 sendLobbyChatMessage={handleSendLobbyChatMessage}
                 startedTyping={handleStartedTyping}
                 stoppedTyping={handleStoppedTyping}
+                logout={logout}
+                addFriend={addFriend}
+                acceptFriendRequest={acceptFriendRequest}
+                declineInvite={handleDeclineInvite}
+                joinLobby={handleJoinLobby}
               />
             );
           case Page.GameOfTwo:
