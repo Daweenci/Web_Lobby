@@ -1,25 +1,15 @@
-import React, { useState } from 'react';
 import MainMenu from './pages/MainMenu';
 import GameOfTwo from './pages/GameOfTwo';
 import GameOfThree from './pages/GameOfThree';
 import GameOfFour from './pages/GameOfFour';
 import LobbyScreen from './pages/LobbyScreen';
-import type { yourLobby, broadcastedLobby, PageType, Player, friendRequest, Friend, LobbyInvite, ChatMessage, TypingPlayer } from './structs';
 import { Page } from './structs';
 import useWebSocket from './useWebSocket';
 import { Toaster } from 'sonner';
 import Auth from './pages/Auth';
+import { useStore } from './store';
 
 export default function App() {
-  const [player, setPlayer] = useState<Player>({} as Player);
-  const [broadcastedLobbies, setbroadcastedLobbies] = useState<broadcastedLobby[]>([]);
-  const [lobby, setLobby] = useState<yourLobby>({} as yourLobby);
-  const [pendingFriendRequests, setPendingFriendRequests] = useState<friendRequest[]>([]);
-  const [friendsList, setFriendsList] = useState<Friend[]>([]);
-  const [currentPage, setCurrentPage] = useState<PageType>(Page.Auth);
-  const [pendingInvites, setPendingInvites] = useState<LobbyInvite[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [typingPlayers, setTypingPlayers] = useState<TypingPlayer[]>([]);
 
   const {
     connect,
@@ -38,37 +28,27 @@ export default function App() {
     sendLobbyChatMessage,
     startedTyping,
     stoppedTyping,
-  } = useWebSocket({
-    onSetPlayer: setPlayer,
-    onSetLobby: setLobby,
-    onSetLobbies: setbroadcastedLobbies,
-    onSetPendingFriendRequests: setPendingFriendRequests,
-    onSetFriendsList: setFriendsList,
-    onSetPage: setCurrentPage,
-    onSetPendingInvites: setPendingInvites,
-    onSetChatMessages: setChatMessages,
-    onSetTypingPlayers: setTypingPlayers,
-  });
+  } = useWebSocket();
 
   const handleConnectWebSocket = () => { connect(); };
   const handleCreateLobby = (name: string, max: number, priv: boolean, pass: string) => createLobby(name, max, priv, pass);
-  const handleStartGame = () => startGame(lobby.id);
-  const handleCancelGame = () => cancelGame(lobby.id);
-  const handleLeaveLobby = () => leaveLobby(lobby.id);
+  const handleStartGame = () => startGame(useStore.getState().lobby.id);
+  const handleCancelGame = () => cancelGame(useStore.getState().lobby.id);
+  const handleLeaveLobby = () => leaveLobby(useStore.getState().lobby.id);
   const handleJoinLobby = (lobbyID: string, lobbyPassword: string) => joinLobby(lobbyID, lobbyPassword);
-  const handleInviteToLobby = (friendID: string) => inviteToLobby(lobby.id, friendID);
+  const handleInviteToLobby = (friendID: string) => inviteToLobby(useStore.getState().lobby.id, friendID);
   const handleDeclineInvite = (lobbyID: string) => declineInvite(lobbyID);
-  const handleAddBotToLobby = () => addBotToLobby(lobby.id);
-  const handleRemoveBotFromLobby = (botID: string) => removeBotFromLobby(lobby.id, botID);
-  const handleSendLobbyChatMessage = (content: string) => sendLobbyChatMessage(lobby.id, content);
-  const handleStartedTyping = () => startedTyping(lobby.id);
-  const handleStoppedTyping = () => stoppedTyping(lobby.id);
+  const handleAddBotToLobby = () => addBotToLobby(useStore.getState().lobby.id);
+  const handleRemoveBotFromLobby = (botID: string) => removeBotFromLobby(useStore.getState().lobby.id, botID);
+  const handleSendLobbyChatMessage = (content: string) => sendLobbyChatMessage(useStore.getState().lobby.id, content);
+  const handleStartedTyping = () => startedTyping(useStore.getState().lobby.id);
+  const handleStoppedTyping = () => stoppedTyping(useStore.getState().lobby.id);
 
   return (
     <>
       <Toaster />
       {(() => {
-        switch (currentPage) {
+        switch (useStore.getState().currentPage) {
           case Page.Auth:
             return <Auth connectWebSocket={handleConnectWebSocket} />;
           case Page.MainMenu:
@@ -76,15 +56,15 @@ export default function App() {
               <MainMenu
                 createLobby={handleCreateLobby}
                 joinLobby={handleJoinLobby}
-                lobbies={broadcastedLobbies}
-                currentPlayerID={player.id}
-                playerName={player.name}
-                pendingFriendRequests={pendingFriendRequests}
+                lobbies={useStore.getState().broadcastedLobbies}
+                currentPlayerID={useStore.getState().player.id}
+                playerName={useStore.getState().player.name}
+                pendingFriendRequests={useStore.getState().pendingFriendRequests}
                 logout={logout}
                 addFriend={addFriend}
                 acceptFriendRequest={acceptFriendRequest}
-                friendsList={friendsList}
-                pendingInvites={pendingInvites}
+                friendsList={useStore.getState().friendsList}
+                pendingInvites={useStore.getState().pendingInvites}
                 declineInvite={handleDeclineInvite}
               />
             );
@@ -94,11 +74,11 @@ export default function App() {
                 startGame={handleStartGame}
                 cancelGame={handleCancelGame}
                 leaveLobby={handleLeaveLobby}
-                friendsList={friendsList}
-                lobby={lobby}
-                currentPlayerID={player.id}
-                chatMessages={chatMessages}
-                typingPlayers={typingPlayers}
+                friendsList={useStore.getState().friendsList}
+                lobby={useStore.getState().lobby}
+                currentPlayerID={useStore.getState().player.id}
+                chatMessages={useStore.getState().chatMessages}
+                typingPlayers={useStore.getState().typingPlayers}
                 inviteToLobby={handleInviteToLobby}
                 addBotToLobby={handleAddBotToLobby}
                 removeBotFromLobby={handleRemoveBotFromLobby}

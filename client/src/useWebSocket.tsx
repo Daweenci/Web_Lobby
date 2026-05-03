@@ -2,34 +2,14 @@ import { useRef, useEffect } from 'react';
 import type { yourLobby, broadcastedLobby, Player, PageType, friendRequest, Friend, LobbyInvite, ChatMessage, TypingPlayer } from './structs';
 import { MessageTypes, Page } from './structs';
 import { toast } from 'sonner';
+import { useStore } from './store';
 
 interface UseWebSocketProps {
-  onSetPlayer: React.Dispatch<React.SetStateAction<Player>>;
-  onSetLobby: React.Dispatch<React.SetStateAction<yourLobby>>;
-  onSetLobbies: React.Dispatch<React.SetStateAction<broadcastedLobby[]>>;
-  onSetPendingFriendRequests: React.Dispatch<React.SetStateAction<friendRequest[]>>;
-  onSetFriendsList: React.Dispatch<React.SetStateAction<Friend[]>>;
-  onSetPage: React.Dispatch<React.SetStateAction<PageType>>;
-  onSetPendingInvites: React.Dispatch<React.SetStateAction<LobbyInvite[]>>;
-  onSetChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  onSetTypingPlayers: React.Dispatch<React.SetStateAction<TypingPlayer[]>>;
 }
 
-export default function useWebSocket({
-  onSetPlayer,
-  onSetLobby,
-  onSetLobbies,
-  onSetPendingFriendRequests,
-  onSetFriendsList,
-  onSetPage,
-  onSetPendingInvites,
-  onSetChatMessages,
-  onSetTypingPlayers,
-}: UseWebSocketProps) {
+export default function useWebSocket() {
 
   const ws = useRef<WebSocket | null>(null);
-
-  // Refs so toast buttons never close over stale function instances
   const joinLobbyRef = useRef<(lobbyID: string, password: string) => void>(() => {});
   const declineInviteRef = useRef<(lobbyID: string) => void>(() => {});
 
@@ -65,7 +45,7 @@ export default function useWebSocket({
     const token = getAuthToken();
     if (!token) {
       console.error('No auth token found. Cannot connect WebSocket.');
-      onSetPage(Page.Auth);
+      useStore.getState().setPage(Page.Auth);
       return;
     }
 
@@ -88,32 +68,32 @@ export default function useWebSocket({
       switch (data.type) {
 
         case MessageTypes.ResponseWelcome:
-          onSetPlayer(data.player);
-          onSetPage(Page.MainMenu);
+          useStore.getState().setPlayer(data.player);
+          useStore.getState().setPage(Page.MainMenu);
           if (data.message) toast(data.message);
-          if (data.lobbies) onSetLobbies(data.lobbies);
-          if (data.pendingFriendRequests) onSetPendingFriendRequests(data.pendingFriendRequests);
-          if (data.friendsList) onSetFriendsList(data.friendsList);
+          if (data.lobbies) useStore.getState().setBroadcastedLobbies(data.lobbies);
+          if (data.pendingFriendRequests) useStore.getState().setPendingFriendRequests(data.pendingFriendRequests);
+          if (data.friendsList) useStore.getState().setFriendsList(data.friendsList);
           break;
 
         case MessageTypes.ResponseLobbyList:
-          onSetLobbies(data.lobbies);
+          useStore.getState().setBroadcastedLobbies(data.lobbies);
           break;
 
         case MessageTypes.ResponseLobbyCreated:
-          onSetLobby(data.lobby);
-          onSetChatMessages([]);
-          onSetTypingPlayers([]);
-          onSetPage(Page.InLobby);
+          useStore.getState().setLobby(data.lobby);
+          useStore.getState().setChatMessages([]);
+          useStore.getState().setTypingPlayers([]);
+          useStore.getState().setPage(Page.InLobby);
           toast('Lobby created successfully');
           break;
 
         case MessageTypes.ResponseJoinLobbySuccessful:
-          onSetLobby(data.lobby);
-          onSetChatMessages(data.chatHistory || []);
-          onSetTypingPlayers([]);
-          onSetPage(Page.InLobby);
-          onSetPendingInvites(prev => prev.filter(i => i.lobbyID !== data.lobby.id));
+          useStore.getState().setLobby(data.lobby);
+          useStore.getState().setChatMessages(data.chatHistory || []);
+          useStore.getState().setTypingPlayers([]);
+          useStore.getState().setPage(Page.InLobby);
+          useStore.getState().addInvite(data.invite);
           toast.dismiss();
           toast('Joined lobby successfully');
           break;
@@ -123,22 +103,22 @@ export default function useWebSocket({
           break;
 
         case MessageTypes.ResponseLobbyUpdated:
-          onSetLobby(data.lobby);
+          useStore.getState().setLobby(data.lobby);
           break;
 
         case MessageTypes.ResponseLobbyLeft:
-          onSetLobby({} as yourLobby);
-          onSetChatMessages([]);
-          onSetTypingPlayers([]);
-          onSetPage(Page.MainMenu);
+          useStore.getState().setLobby({} as yourLobby);
+          useStore.getState().setChatMessages([]);
+          useStore.getState().setTypingPlayers([]);
+          useStore.getState().setPage(Page.MainMenu);
           break;
 
         case MessageTypes.ResponsePendingFriendRequests:
-          onSetPendingFriendRequests(data.pendingFriendRequests);
+          useStore.getState().setPendingFriendRequests(data.pendingFriendRequests);
           break;
 
         case MessageTypes.ResponseFriendsList:
-          onSetFriendsList(data.friendsList);
+          useStore.getState().setFriendsList(data.friendsList);
           break;
 
         case MessageTypes.ResponseFriendRequestSent:
@@ -147,11 +127,11 @@ export default function useWebSocket({
 
         case MessageTypes.ResponseFriendRequestReceived: {
           const request = { id: data.player.id, name: data.player.name };
-          onSetPendingFriendRequests(prev => [...prev, request]);
+          useStore.getState().addPendingFriendRequest(request);
 
           const toastID = `friend-request-${data.player.id}`;
 
-          toast.custom(
+          toast.custom( //TODO: extract to its own file
             () => (
               <div className="flex flex-col gap-2 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 min-w-[280px]">
                 <p className="text-sm text-gray-800">
@@ -185,18 +165,12 @@ export default function useWebSocket({
         }
 
         case MessageTypes.ResponseFriendRequestAccepted:
-          onSetFriendsList(prev => [...prev, data.friend]);
+          useStore.getState().addFriend(data.friend);
           toast('Friend request accepted by ' + data.friend.name);
           break;
 
         case MessageTypes.ResponseFriendOnlineStatus:
-          onSetFriendsList(prev =>
-            prev.map(f =>
-              f.id === data.friend.id
-                ? { ...f, isOnline: data.friend.isOnline }
-                : f
-            )
-          );
+          useStore.getState().updateFriendStatus(data.friend);
           toast(`${data.friend.name} is now ${data.friend.isOnline ? 'online' : 'offline'}`);
           break;
 
@@ -207,11 +181,11 @@ export default function useWebSocket({
             inviterID: data.inviterID,
             inviterName: data.inviterName,
           };
-          onSetPendingInvites(prev => [...prev, invite]);
+          useStore.getState().addInvite(invite);
 
           const toastID = `invite-${data.lobbyID}`;
 
-          toast.custom(
+          toast.custom( //TODO: extract to its own file
             (t) => (
               <div className="flex flex-col gap-2 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 min-w-[280px]">
                 <p className="text-sm text-gray-800">
@@ -249,42 +223,28 @@ export default function useWebSocket({
           break;
 
         case MessageTypes.ResponseInviteDeclined:
-          onSetPendingInvites(prev => prev.filter(i => i.lobbyID !== data.lobbyID));
+          useStore.getState().removeInvite(data.lobbyID);
           toast.dismiss(`invite-${data.lobbyID}`);
           break;
 
         case MessageTypes.ResponseBotJoined:
-          onSetLobby(prev => ({
-            ...prev,
-            bots: [...(prev.bots || []), data.bot],
-          }));
+          useStore.getState().addBot(data.bot);
           break;
 
         case MessageTypes.ResponseBotLeft:
-          onSetLobby(prev => ({
-            ...prev,
-            bots: (prev.bots || []).filter(b => b.id !== data.botID),
-          }));
+          useStore.getState().removeBot(data.botID);
           break;
 
         case MessageTypes.ResponseLobbyChatMessage:
-          onSetChatMessages(prev => [...prev, {
-            senderID: data.senderID,
-            senderName: data.senderName,
-            content: data.content,
-            isBot: data.isBot,
-          }]);
-          onSetTypingPlayers(prev => prev.filter(p => p.playerID !== data.senderID));
+          useStore.getState().addChatMessage(data.message);
+          useStore.getState().removeTypingPlayer(data.message.senderID);
           break;
 
         case MessageTypes.ResponsePlayerTyping:
           if (data.isTyping) {
-            onSetTypingPlayers(prev => {
-              if (prev.find(p => p.playerID === data.playerID)) return prev;
-              return [...prev, { playerID: data.playerID, playerName: data.playerName }];
-            });
+            useStore.getState().addTypingPlayer({ playerID: data.playerID, playerName: data.playerName });
           } else {
-            onSetTypingPlayers(prev => prev.filter(p => p.playerID !== data.playerID));
+            useStore.getState().removeTypingPlayer(data.playerID);
           }
           break;
 
@@ -306,10 +266,10 @@ export default function useWebSocket({
       console.log('WebSocket closed', event.code, event.reason);
       ws.current = null;
       if (event.code === 1008) {
-        onSetPlayer({} as Player);
-        onSetLobby({} as yourLobby);
-        onSetLobbies([]);
-        onSetPage(Page.Auth);
+        useStore.getState().setPlayer({} as Player);
+        useStore.getState().setLobby({} as yourLobby);
+        useStore.getState().setBroadcastedLobbies([]);
+        useStore.getState().setPage(Page.Auth);
         toast('Logged in on another device');
       }
     };
@@ -373,10 +333,10 @@ export default function useWebSocket({
   const logout = () => {
     clearAuthToken();
     ws.current?.close();
-    onSetPlayer({} as Player);
-    onSetLobby({} as yourLobby);
-    onSetLobbies([]);
-    onSetPage(Page.Auth);
+    useStore.getState().setPlayer({} as Player);
+    useStore.getState().setLobby({} as yourLobby);
+    useStore.getState().setBroadcastedLobbies([]);
+    useStore.getState().setPage(Page.Auth);
   };
 
   useEffect(() => {
