@@ -583,7 +583,7 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	lobby.Lock.Lock()
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		lobby.Lock.Unlock()
-		return
+		return //TODO send Feedback to player that lobby is full
 	}
 	lobby.Lock.Unlock()
 
