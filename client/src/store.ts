@@ -12,6 +12,7 @@ export interface Store {
     pendingInvites: LobbyInvite[];
     chatMessages: ChatMessage[];
     typingPlayers: TypingPlayer[];
+    botCreating: boolean;
 
     setPlayer: (player: Player) => void;
     setBroadcastedLobbies: (lobbies: broadcastedLobby[]) => void;
@@ -42,6 +43,7 @@ export interface Store {
     removeTypingPlayer: (playerID: string) => void;
     clearTypingPlayers: () => void;
 
+    setBotCreating: (creating: boolean) => void;
     addBot: (bot: any) => void;
     removeBot: (botID: string) => void;
 }
@@ -56,6 +58,7 @@ export const useStore = create<Store>((set) => ({
     pendingInvites: [],
     chatMessages: [],
     typingPlayers: [],
+    botCreating: false,
 
     setPlayer: (player) => set({ player }),
     setBroadcastedLobbies: (lobbies) => set({ broadcastedLobbies: lobbies }),
@@ -78,6 +81,7 @@ export const useStore = create<Store>((set) => ({
             lobby,
             chatMessages: chatMessages ?? [],
             typingPlayers: [],
+            botCreating: false,
             currentPage: Page.InLobby,
         }),
 
@@ -86,6 +90,7 @@ export const useStore = create<Store>((set) => ({
             lobby: {} as yourLobby,
             chatMessages: [],
             typingPlayers: [],
+            botCreating: false,
             currentPage: page,
         }),
 
@@ -144,6 +149,8 @@ export const useStore = create<Store>((set) => ({
         })),
 
     clearTypingPlayers: () => set({ typingPlayers: [] }),
+
+    setBotCreating: (creating) => set({ botCreating: creating }),
 
     addBot: (bot) =>
         set((state) => {

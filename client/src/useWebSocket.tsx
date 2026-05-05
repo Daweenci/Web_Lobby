@@ -257,12 +257,24 @@ export default function useWebSocket() {
           toast.dismiss(`invite-${data.lobbyID}`);
           break;
 
+        case MessageTypes.ResponseBotCreating:
+          useStore.getState().setBotCreating(true);
+          break;
+
+        case MessageTypes.ResponseBotCreationFailed:
+          useStore.getState().setBotCreating(false);
+          toast(data.message || 'Failed to add bot');
+          break;
+
         case MessageTypes.ResponseBotJoined:
+          useStore.getState().setBotCreating(false);
           useStore.getState().addBot(data.bot);
+          toast(`${data.bot.name} joined the lobby`);
           break;
 
         case MessageTypes.ResponseBotLeft:
           useStore.getState().removeBot(data.botID);
+          toast(`${data.botName} left the lobby`);
           break;
 
         case MessageTypes.ResponseLobbyChatMessage:
@@ -362,6 +374,7 @@ export default function useWebSocket() {
 
   const stoppedTyping = (lobbyID: string) =>
     sendMessage({ type: MessageTypes.RequestStartedTyping, lobbyID, isTyping: false });
+
 
   // Keep refs in sync so toast buttons always call the latest version
   joinLobbyRef.current = joinLobby;

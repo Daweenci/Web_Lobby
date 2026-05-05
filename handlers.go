@@ -583,15 +583,28 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	lobby.Lock.Lock()
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		lobby.Lock.Unlock()
-		return //TODO send Feedback to player that lobby is full
-	}
-	lobby.Lock.Unlock()
-
-	name, personality, err := generateBotPersonality()
-	if err != nil {
-		log.Printf("addBotToLobbyHandler: failed to generate bot personality: %v", err)
+		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
+			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
+			Message:      "Lobby is full",
+		})
 		return
 	}
+	if lobby.BotCreating {
+		lobby.Lock.Unlock()
+		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
+			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
+			Message:      "A bot is already being created",
+		})
+		return
+	}
+	lobby.BotCreating = true
+	lobby.Lock.Unlock()
+
+	broadcastToLobbyPlayers(lobby, BotCreatingResponse{
+		BaseResponse: newBaseResponse(ResponseBotCreating),
+	})
+
+	name, personality := pickBotPersonality()
 
 	bot := &Bot{
 		ID:                      uuid.New().String(),
@@ -601,7 +614,17 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	}
 
 	lobby.Lock.Lock()
+	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
+		lobby.BotCreating = false
+		lobby.Lock.Unlock()
+		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
+			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
+			Message:      "Lobby is full",
+		})
+		return
+	}
 	lobby.Bots = append(lobby.Bots, bot)
+	lobby.BotCreating = false
 	lobby.Lock.Unlock()
 
 	go bot.Start(lobby)
@@ -609,6 +632,7 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
+	log.Println("Bot created with personality:", personality)
 }
 
 func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
@@ -622,8 +646,10 @@ func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
 
 	lobby.Lock.Lock()
 	removed := false
+	botName := ""
 	for i := len(lobby.Bots) - 1; i >= 0; i-- {
 		if lobby.Bots[i].ID == msg.BotID {
+			botName = lobby.Bots[i].Name
 			close(lobby.Bots[i].MessageQueue)
 			lobby.Bots = append(lobby.Bots[:i], lobby.Bots[i+1:]...)
 			removed = true
@@ -637,7 +663,7 @@ func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
 		return
 	}
 
-	broadcastBotLeft(lobby, msg.BotID)
+	broadcastBotLeft(lobby, msg.BotID, botName)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
 }

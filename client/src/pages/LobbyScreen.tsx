@@ -38,12 +38,13 @@ export default function LobbyScreen({
   declineInvite,
   joinLobby,
 }: LobbyScreenProps) {
-  const { lobby, currentPlayer, chatMessages, typingPlayers, friendsList } = useStore(
+  const { lobby, currentPlayer, chatMessages, typingPlayers, botCreating, friendsList } = useStore(
     useShallow((state: Store) => ({
       lobby: state.lobby,
       currentPlayer: state.player,
       chatMessages: state.chatMessages,
       typingPlayers: state.typingPlayers,
+      botCreating: state.botCreating,
       friendsList: state.friendsList,
     }))
   );
@@ -153,19 +154,28 @@ export default function LobbyScreen({
               ))}
               {lobby.bots?.map((bot) => (
                 <li key={bot.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                    <span>{bot.name}</span>
-                  </div>
-                  <button
-                    onClick={() => removeBotFromLobby(bot.id)}
-                    className="text-gray-400 hover:text-red-500 transition text-xs ml-2"
-                    title="Remove bot"
-                  >
-                    ✕
-                  </button>
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+                        <span>{bot.name}</span>
+                    </div>
+                    <button
+                        onClick={() => removeBotFromLobby(bot.id)}
+                        className="text-gray-400 hover:text-red-500 transition text-xs ml-2"
+                        title="Remove bot"
+                    >
+                        ✕
+                    </button>
                 </li>
-              ))}
+            ))}
+            {botCreating && (
+                <li className="flex items-center gap-2 text-sm text-purple-400">
+                    <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    <span>Adding bot...</span>
+                </li>
+            )}
             </ul>
 
             {lobby.password && (
@@ -201,10 +211,11 @@ export default function LobbyScreen({
 
             {/* Add bot */}
             <button
-              onClick={addBotToLobby}
-              className="w-full border-2 border-purple-300 text-purple-600 rounded-xl px-3 py-2 hover:bg-purple-50 transition text-sm"
+                onClick={addBotToLobby}
+                disabled={botCreating}
+                className="w-full border-2 border-purple-300 text-purple-600 rounded-xl px-3 py-2 hover:bg-purple-50 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              + Add Bot
+                + Add Bot
             </button>
 
             {/* Start / Cancel */}

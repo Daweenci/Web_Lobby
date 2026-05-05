@@ -98,6 +98,8 @@ export const MessageTypes = {
   ResponseFriendsList: "friends_list",
   ResponseInviteSent: "invite_sent",
   ResponseInviteReceived: "invite_received",
+  ResponseBotCreating: "bot_creating",
+  ResponseBotCreationFailed: "bot_creation_failed",
   ResponseBotJoined: "bot_joined",
   ResponseBotLeft: "bot_left",
   ResponsePlayerTyping: "player_typing",

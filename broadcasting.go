@@ -73,26 +73,6 @@ func broadcastLobbies() {
 	}
 }
 
-func broadcastLobbyChatMessage(lobby *Lobby, msg LobbyChatMessage) {
-	lobby.Lock.RLock()
-	playersCopy := make([]*Player, len(lobby.Players))
-	copy(playersCopy, lobby.Players)
-	lobby.Lock.RUnlock()
-
-	response := LobbyChatMessageResponse{
-		BaseResponse: newBaseResponse(ResponseLobbyChatMessage),
-		LobbyID:      lobby.ID,
-		SenderName:   msg.SenderName,
-		SenderID:     msg.SenderID,
-		Content:      msg.Content,
-		IsBot:        msg.IsBot,
-	}
-
-	for _, player := range playersCopy {
-		sendResponse(player, response)
-	}
-}
-
 func broadcastTyping(lobby *Lobby, playerID string, playerName string, isTyping bool) {
 	lobby.Lock.RLock()
 	playersCopy := make([]*Player, len(lobby.Players))
@@ -116,29 +96,38 @@ func broadcastTyping(lobby *Lobby, playerID string, playerName string, isTyping 
 }
 
 func broadcastBotJoined(lobby *Lobby, bot *Bot) {
-	lobby.Lock.RLock()
-	playersCopy := make([]*Player, len(lobby.Players))
-	copy(playersCopy, lobby.Players)
-	lobby.Lock.RUnlock()
-
-	for _, p := range playersCopy {
-		sendResponse(p, BotJoinedResponse{
-			BaseResponse: newBaseResponse(ResponseBotJoined),
-			Bot:          BotDTO{ID: bot.ID, Name: bot.Name},
-		})
-	}
+	broadcastToLobbyPlayers(lobby, BotJoinedResponse{
+		BaseResponse: newBaseResponse(ResponseBotJoined),
+		Bot:          BotDTO{ID: bot.ID, Name: bot.Name},
+	})
 }
 
-func broadcastBotLeft(lobby *Lobby, botID string) {
+func broadcastBotLeft(lobby *Lobby, botID string, botName string) {
+	broadcastToLobbyPlayers(lobby, BotLeftResponse{
+		BaseResponse: newBaseResponse(ResponseBotLeft),
+		BotID:        botID,
+		BotName:      botName,
+	})
+}
+
+func broadcastLobbyChatMessage(lobby *Lobby, msg LobbyChatMessage) {
+	broadcastToLobbyPlayers(lobby, LobbyChatMessageResponse{
+		BaseResponse: newBaseResponse(ResponseLobbyChatMessage),
+		LobbyID:      lobby.ID,
+		SenderName:   msg.SenderName,
+		SenderID:     msg.SenderID,
+		Content:      msg.Content,
+		IsBot:        msg.IsBot,
+	})
+}
+
+func broadcastToLobbyPlayers(lobby *Lobby, response Response) {
 	lobby.Lock.RLock()
-	playersCopy := make([]*Player, len(lobby.Players))
-	copy(playersCopy, lobby.Players)
+	players := make([]*Player, len(lobby.Players))
+	copy(players, lobby.Players)
 	lobby.Lock.RUnlock()
 
-	for _, p := range playersCopy {
-		sendResponse(p, BotLeftResponse{
-			BaseResponse: newBaseResponse(ResponseBotLeft),
-			BotID:        botID,
-		})
+	for _, p := range players {
+		sendResponse(p, response)
 	}
 }

@@ -49,10 +49,12 @@ const (
 	ResponseFriendRequestAccepted MessageType = "friend_request_accepted"
 	ResponseFriendOnlineStatus    MessageType = "friend_online_status"
 	ResponseInviteDeclined        MessageType = "invite_declined"
-	ResponseInviteReceived        MessageType = "invite_received"    //TODO
-	ResponseInviteSent            MessageType = "invite_sent"        //TODO
-	ResponseBotJoined             MessageType = "bot_joined"         //TODO
-	ResponseBotLeft               MessageType = "bot_left"           //TODO
+	ResponseInviteReceived        MessageType = "invite_received"
+	ResponseInviteSent            MessageType = "invite_sent"
+	ResponseBotCreating           MessageType = "bot_creating"
+	ResponseBotCreationFailed     MessageType = "bot_creation_failed"
+	ResponseBotJoined             MessageType = "bot_joined"
+	ResponseBotLeft               MessageType = "bot_left"
 	ResponseBotFriendAdded        MessageType = "bot_friend_added"   //TODO
 	ResponseBotFriendRemoved      MessageType = "bot_friend_removed" //TODO
 	ResponsePlayerTyping          MessageType = "player_typing"
@@ -209,6 +211,7 @@ type Lobby struct {
 	Bots        []*Bot
 	GameStart   []PlayerStarted
 	ChatHistory []LobbyChatMessage
+	BotCreating bool
 	Lock        sync.RWMutex
 }
 
@@ -326,7 +329,8 @@ type BotJoinedResponse struct {
 
 type BotLeftResponse struct {
 	BaseResponse
-	BotID string `json:"botID"`
+	BotID   string `json:"botID"`
+	BotName string `json:"botName"`
 }
 
 type LobbyChatMessageResponse struct {
@@ -367,4 +371,13 @@ type InviteDeclinedResponse struct {
 type ErrorResponse struct {
 	BaseResponse
 	Error string `json:"error"`
+}
+
+type BotCreatingResponse struct {
+	BaseResponse
+}
+
+type BotCreationFailedResponse struct {
+	BaseResponse
+	Message string `json:"message"`
 }
