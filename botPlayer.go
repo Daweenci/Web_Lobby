@@ -46,7 +46,7 @@ var botPersonalities = []string{
 func generateBotName() string {
 	adj := nameAdjectives[rand.Intn(len(nameAdjectives))]
 	noun := nameNouns[rand.Intn(len(nameNouns))]
-	number := rand.Intn(100)
+	number := rand.Intn(989) + 10 // 10 to 999, to avoid very short numbers
 	return fmt.Sprintf("%s%s%d", adj, noun, number)
 }
 
