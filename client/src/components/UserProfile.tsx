@@ -13,7 +13,7 @@ type Props = {
   onJoinLobby: (lobbyID: string) => void;
 };
 
-export default function UserProfile({
+export function UserProfile({
   onLogout,
   onAddFriend,
   onAcceptFriendRequest,

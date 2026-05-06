@@ -12,7 +12,7 @@ type CreateLobbyModalProps = {
   onCreateLobby: (name: string, maxPlayers: number, isPrivate: boolean, password: string) => void;
 };
 
-export default function CreateLobbyModal({ isOpen, onClose, onCreateLobby }: CreateLobbyModalProps) {
+export function CreateLobbyModal({ isOpen, onClose, onCreateLobby }: CreateLobbyModalProps) {
   const [lobbyName, setLobbyName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState<"2" | "3" | "4">("2");
   const [isPrivate, setIsPrivate] = useState(false);

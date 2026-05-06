@@ -1,15 +1,12 @@
-import MainMenu from './pages/MainMenu';
-import GameOfTwo from './pages/GameOfTwo';
-import GameOfThree from './pages/GameOfThree';
-import GameOfFour from './pages/GameOfFour';
-import LobbyScreen from './pages/LobbyScreen';
+import { MainMenu } from './pages/MainMenu';
+import { LobbyScreen } from './pages/LobbyScreen';
 import { Page } from './structs';
-import useWebSocket from './useWebSocket';
+import { useWebSocket } from './useWebSocket';
 import { Toaster } from 'sonner';
-import Auth from './pages/Auth';
+import { Auth } from './pages/Auth';
 import { useStore } from './store';
 
-export default function App() {
+export function App() {
 
   const lobby = useStore((state) => (state.lobby));
   const currentPage = useStore((state) => (state.currentPage));
@@ -83,12 +80,6 @@ export default function App() {
                 joinLobby={handleJoinLobby}
               />
             );
-          case Page.GameOfTwo:
-            return <GameOfTwo />;
-          case Page.GameOfThree:
-            return <GameOfThree />;
-          case Page.GameOfFour:
-            return <GameOfFour />;
           default:
             return null;
         }

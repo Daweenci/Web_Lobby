@@ -1,10 +1,10 @@
 // MainMenu.tsx
 import { Button } from '@/components/ui/button';
-import React, { useState } from 'react';
-import CreateLobbyModal from './CreateLobbyModal';
-import JoinPasswordModal from './JoinPasswordModal';
+import { useState } from 'react';
+import { CreateLobbyModal } from './CreateLobbyModal';
+import { JoinPasswordModal } from './JoinPasswordModal';
 import { toast } from 'sonner';
-import UserProfile from '@/components/UserProfile';
+import { UserProfile } from '@/components/UserProfile';
 import { useStore } from '@/store';
 
 type MainMenuProps = {
@@ -16,7 +16,7 @@ type MainMenuProps = {
   declineInvite: (lobbyID: string) => void;
 };
 
-export default function MainMenu({
+export function MainMenu({
   createLobby,
   joinLobby,
   logout,

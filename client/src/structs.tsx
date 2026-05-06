@@ -112,9 +112,6 @@ export const Page = {
   Auth: "auth",
   MainMenu: "main_menu",
   InLobby: "in_lobby",
-  GameOfTwo: "game_of_two",
-  GameOfThree: "game_of_three",
-  GameOfFour: "game_of_four",
   LobbyScreen: "lobby_screen",
 } as const;
 

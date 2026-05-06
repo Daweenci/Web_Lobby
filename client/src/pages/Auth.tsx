@@ -7,7 +7,7 @@ type AuthProps = {
   connectWebSocket: () => void; 
 };
 
-export default function Auth({ connectWebSocket }: AuthProps) {
+export function Auth({ connectWebSocket }: AuthProps) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

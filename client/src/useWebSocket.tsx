@@ -4,7 +4,7 @@ import { MessageTypes, Page } from './structs';
 import { toast } from 'sonner';
 import { useStore } from './store';
 
-export default function useWebSocket() {
+export function useWebSocket() {
 
   const ws = useRef<WebSocket | null>(null);
   const joinLobbyRef = useRef<(lobbyID: string, password: string) => void>(() => {});

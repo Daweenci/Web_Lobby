@@ -9,7 +9,7 @@ type JoinPasswordModalProps = {
   onJoinLobby: (password: string) => void;
 };
 
-export default function JoinPasswordModal({ isOpen, onClose, onJoinLobby }: JoinPasswordModalProps) {
+export function JoinPasswordModal({ isOpen, onClose, onJoinLobby }: JoinPasswordModalProps) {
   const [password, setPassword] = useState('');
 
   // Reset password when modal closes

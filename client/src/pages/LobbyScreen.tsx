@@ -3,7 +3,7 @@ import type { Friend } from '@/structs';
 import inviteIcon from "@/assets/invite.svg";
 import { useStore, type Store } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import UserProfile from '@/components/UserProfile';
+import { UserProfile } from '@/components/UserProfile';
 
 type LobbyScreenProps = {
   startGame: () => void;
@@ -22,7 +22,7 @@ type LobbyScreenProps = {
   joinLobby: (lobbyID: string, joinPassword: string) => void;
 };
 
-export default function LobbyScreen({
+export function LobbyScreen({
   startGame,
   cancelGame,
   leaveLobby,
