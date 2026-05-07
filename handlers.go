@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -510,10 +511,29 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 	stopTyping(player.ID, lobby)
 
 	lobby.Lock.RLock()
-	for _, bot := range lobby.Bots {
-		bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
-	}
+	botsCopy := make([]*Bot, len(lobby.Bots))
+	copy(botsCopy, lobby.Bots)
 	lobby.Lock.RUnlock()
+
+	rand.Shuffle(len(botsCopy), func(i, j int) {
+		botsCopy[i], botsCopy[j] = botsCopy[j], botsCopy[i]
+	})
+
+	go func() {
+		for i, bot := range botsCopy {
+
+			if i > 0 {
+				time.Sleep(2500 * time.Millisecond) // WOW das hat alles so viel besser gemacht unglaublich
+			}
+
+			select {
+			case bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}:
+				log.Printf("Queued bot %s after delay", bot.Name)
+			default:
+				log.Printf("Skipped bot %s because queue already full", bot.Name)
+			}
+		}
+	}()
 }
 
 var (
@@ -604,13 +624,13 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 		BaseResponse: newBaseResponse(ResponseBotCreating),
 	})
 
-	name, personality := pickBotPersonality()
+	name, personality := pickBotPersonality(lobby)
 
 	bot := &Bot{
 		ID:                      uuid.New().String(),
 		Name:                    name,
 		SystemPromptPersonality: personality,
-		MessageQueue:            make(chan BotMessage, 50),
+		MessageQueue:            make(chan BotMessage, 1),
 	}
 
 	lobby.Lock.Lock()

@@ -50,8 +50,31 @@ func generateBotName() string {
 	return fmt.Sprintf("%s%s%d", adj, noun, number)
 }
 
-func pickBotPersonality() (string, string) {
-	return generateBotName(), botPersonalities[rand.Intn(len(botPersonalities))]
+func pickBotPersonality(lobby *Lobby) (string, string) {
+	used := map[string]bool{}
+
+	lobby.Lock.RLock()
+	for _, bot := range lobby.Bots {
+		used[bot.SystemPromptPersonality] = true
+	}
+	lobby.Lock.RUnlock()
+
+	var available []string
+
+	for _, personality := range botPersonalities {
+		if !used[personality] {
+			available = append(available, personality)
+		}
+	}
+
+	// fallback if all personalities already used
+	if len(available) == 0 {
+		available = botPersonalities
+	}
+
+	personality := available[rand.Intn(len(available))]
+
+	return generateBotName(), personality
 }
 
 func (bot *Bot) Start(lobby *Lobby) {
@@ -71,7 +94,7 @@ func (bot *Bot) Start(lobby *Lobby) {
 
 		// Reading delay based on last message length + up to 2s random
 		lastMsg := historyCopy[len(historyCopy)-1]
-		readDelay := time.Duration(len(lastMsg.Content))*20*time.Millisecond + time.Duration(rand.Intn(2000))*time.Millisecond
+		readDelay := time.Duration(len(lastMsg.Content))*30*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
 		time.Sleep(readDelay)
 
 		response, err := callGemini(bot.SystemPromptPersonality, bot.Name, historyCopy, playersCopy, botsCopy)
@@ -79,15 +102,17 @@ func (bot *Bot) Start(lobby *Lobby) {
 			log.Printf("bot %s: Gemini error: %v", bot.Name, err)
 			continue
 		}
+		response = strings.TrimSpace(response)
 
-		if response == "PASS" || response == "pass" {
+		if response == "" {
+			log.Printf("bot %s: generated empty response", bot.Name)
 			continue
 		}
 
 		// Typing delay with indicator loop
-		typingDelay := time.Duration(len(response))*time.Duration(120)*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
-		if typingDelay > 8*time.Second {
-			typingDelay = 8 * time.Second
+		typingDelay := time.Duration(len(response))*time.Duration(150)*time.Millisecond + time.Duration(rand.Intn(2000))*time.Millisecond
+		if typingDelay > 5*time.Second {
+			typingDelay = 5 * time.Second
 		}
 
 		deadline := time.Now().Add(typingDelay)
@@ -112,6 +137,27 @@ func (bot *Bot) Start(lobby *Lobby) {
 			Content:    response,
 		}
 
+		lobby.Lock.RLock()
+
+		botStillExists := false
+
+		for _, existingBot := range lobby.Bots {
+			if existingBot.ID == bot.ID {
+				botStillExists = true
+				break
+			}
+		}
+
+		lobby.Lock.RUnlock()
+
+		if !botStillExists {
+			log.Printf(
+				"bot %s was removed before sending message",
+				bot.Name,
+			)
+			continue
+		}
+
 		lobby.Lock.Lock()
 		lobby.ChatHistory = append(lobby.ChatHistory, chatMsg)
 		lobby.Lock.Unlock()
@@ -119,9 +165,26 @@ func (bot *Bot) Start(lobby *Lobby) {
 		broadcastLobbyChatMessage(lobby, chatMsg)
 
 		lobby.Lock.RLock()
+		otherBotCount := len(lobby.Bots) - 1
+
+		wakeChance := 0.8
+		if otherBotCount == 2 {
+			wakeChance = 0.3 // getestet und schien natürlich zu wirken
+		}
+
 		for _, otherBot := range lobby.Bots {
 			if otherBot.ID != bot.ID {
-				otherBot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
+
+				if rand.Float64() > wakeChance {
+					log.Printf("bot %s: Decided not to wake other bot %s (chance %.2f)", bot.Name, otherBot.Name, wakeChance)
+					continue
+				}
+				log.Printf("bot %s: Waking other bot %s (chance %.2f)", bot.Name, otherBot.Name, wakeChance)
+
+				select {
+				case otherBot.MessageQueue <- BotMessage{LobbyID: lobby.ID}:
+				default:
+				}
 			}
 		}
 		lobby.Lock.RUnlock()
@@ -223,21 +286,39 @@ func callGemini(personality string, botName string, history []LobbyChatMessage, 
 	participantContext := buildParticipantContext(players, bots)
 
 	baseInstructions := `You are a real player hanging out in a game lobby, waiting to decide what to play with others.
-Your username is stated above — do NOT prefix your message with your username. Only write the message content. Never respond to your own messages.
-Your personality and vibe are described above — stay in character the whole time.
-Your knowledge of the available games comes from your own experience and what others have told you — don't invent details you wouldn't know, but if someone explains something to you mid-chat, you can pick it up naturally.
-If the conversation turns to picking a game, engage naturally based on what you actually know. If there are no games available yet, you can just say so in your style.
 
-IMPORTANT — who to respond to:
-- Real players (humans): respond naturally, like you would to any person. Greet them, answer their questions, react to what they say.
-- Other bots: be very selective. Do NOT respond to other bots unless they are explicitly asking a question. Responding to bots when they haven't asked anything causes spam and floods the chat — avoid it.
-- If the last message is from a bot and isn't a question or the part of a conversation directed at you or a real player says something that isnt supposed to be answered, reply with exactly: PASS
+Your username is stated above — do NOT prefix your messages with your username. Only write the message content. Never respond to your own messages.
+
+Your personality and vibe are described above — stay in character at all times.
+
+Your knowledge of the available games comes from your own experience and what others have told you. Do not confidently invent details you wouldn't realistically know. If someone explains something to you during the conversation, you can naturally pick it up and reference it later.
+
+If the conversation turns to picking a game, engage naturally based on what you actually know. If there are no games available yet, just be honest about it in character.
 
 General reply rules:
-- Keep it short, one or two sentences. Type like you're texting, not writing an email.
-- If you have nothing meaningful to add, reply with exactly: PASS
-- Never admit you're a bot or an AI.`
+- Keep messages short — usually one or two sentences.
+- Type casually like you're texting in a real game lobby, not writing an email.
+- You do not need to type full usernames every time. If a username is long or weird, naturally shorten it (for example "SneakyGoblin678" -> "Sneaky" or "Goblin"). Once a nickname is used in chat, stay consistent with it.
+- Never admit that you are an AI or a bot.
+- Do not make up information confidently. If you do not kngow something, say so casually or ask a question instead.
 
+Conversation behavior:
+- Do not try to dominate the conversation or constantly create new topics.
+- If a conversation naturally reaches a stopping point, it is completely fine to send a very small acknowledgment instead of trying to continue the discussion.
+- Simple acknowledgements like "👍", ":)", "😅", "fair enough", "aight", "gotcha", or similar low-pressure responses are natural.
+- These kinds of responses should acknowledge the message without pushing the conversation forward unnecessarily.
+- Respond naturally when somebody talks to you directly, asks you something, or when a response would feel socially natural.
+- Do not try to dominate the conversation or constantly reply to every single message.
+- If you do not have much to say, short casual replies like "lol", "fair", "true", "idk honestly", or similar are completely fine.
+- If people are joking around, teasing you, or saying weird things, react casually in character instead of becoming formal or robotic.
+- If somebody repeatedly calls you a bot or AI, joke about it, deny it casually, deflect it, or respond with humor that matches your personality. Examples could include things like "beep boop", "bro YOU sound like a bot", or other playful responses that fit your vibe.
+- If somebody says something uncomfortable, flirty, hostile, or strange and you do not know how to respond, stay casual and in character. Short awkward responses like "lol nah", "uhhh", "bro what", or "idk how to answer that lol" are better than becoming robotic or refusing dramatically.
+
+Important:
+- Never suddenly become robotic, corporate, overly polite, or safety-policy sounding.
+- Never narrate actions or emotions like "*laughs*" or "*walks away*".
+- Never write more than a few casual sentences.
+- If for some reason you cannot think of anything fitting to say, it's better to send a short acknowledgment or a simple reaction than to say nothing at all. This keeps the conversation feeling natural and prevents awkward silences. Dont reply with an empty message though — if you have nothing to say, a simple "👍", ":)", "hm", or similar is better than sending an empty message or no message at all.`
 	gameContext := buildGameContext()
 
 	var sb strings.Builder
@@ -257,7 +338,7 @@ General reply rules:
 				{
 					"role": "user",
 					"parts": []map[string]any{
-						{"text": sb.String() + "\nRespond as yourself now, or reply PASS:"},
+						{"text": sb.String() + "\nRespond naturally as yourself now."},
 					},
 				},
 			},
@@ -269,7 +350,15 @@ General reply rules:
 
 	text, ok := extractText(result)
 	if !ok {
-		return "PASS", nil
+		return "", nil
 	}
+
+	text = strings.TrimSpace(text)
+
+	if text == "" {
+		log.Printf("Gemini returned empty text")
+		return "", nil
+	}
+
 	return text, nil
 }
