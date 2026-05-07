@@ -287,6 +287,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			msg.PlayerID = player.ID
 			declineInviteHandler(msg)
 
+		case RequestCreateCustomBot:
+			var msg CreateCustomBotRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid create_custom_bot message")
+				continue
+			}
+			createCustomBotHandler(msg)
+
 		default:
 			sendErrorToPlayer(player, "Unknown message type")
 		}

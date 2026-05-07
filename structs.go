@@ -26,6 +26,7 @@ const (
 	RequestDeclineInvite        MessageType = "decline_invite"
 	RequestAddBotToLobby        MessageType = "add_bot_to_lobby"
 	RequestRemoveBotFromLobby   MessageType = "remove_bot_from_lobby"
+	RequestCreateCustomBot      MessageType = "create_custom_bot" //TODO
 	RequestAddBotFriend         MessageType = "add_bot_friend"    //TODO
 	RequestRemoveBotFriend      MessageType = "remove_bot_friend" //TODO
 	RequestInviteBotFriend      MessageType = "invite_bot_friend" //TODO
@@ -62,6 +63,12 @@ const (
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
 )
+
+type BotArchetype struct {
+	ID          string
+	DisplayName string
+	Description string
+}
 
 type Bot struct {
 	ID                      string
@@ -274,6 +281,22 @@ type RemoveBotFromLobbyRequest struct {
 	Type    MessageType `json:"type"`
 	LobbyID string      `json:"lobbyID"`
 	BotID   string      `json:"botID"`
+}
+
+type CreateCustomBotRequest struct {
+	Type    MessageType `json:"type"`
+	LobbyID string      `json:"lobbyId"`
+
+	ArchetypeID string `json:"archetypeId"`
+	EnergyLevel int    `json:"energy"`
+	TiltLevel   int    `json:"tilt"`
+	ChaosLevel  int    `json:"chaos"`
+	HumorLevel  int    `json:"humor"`
+
+	UsesEmojis      bool `json:"usesEmojis"`
+	UsesGamingSlang bool `json:"usesGamingSlang"`
+	UsesMemes       bool `json:"usesMemes"`
+	AsksQuestions   bool `json:"asksQuestions"`
 }
 
 type SuccessfulJoinLobbyResponse struct {

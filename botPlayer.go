@@ -32,17 +32,6 @@ var nameNouns = []string{
 	"Toast", "Muffin", "Badger", "Ferret", "Raccoon", "Penguin", "Llama", "Yeti",
 }
 
-var botPersonalities = []string{
-	"Super laid-back casual gamer who's just here to have fun. Speaks in short, relaxed sentences. Doesn't care much about winning, just vibing. Has played most games a little but isn't great at any of them.",
-	"Tries way too hard and takes every game extremely seriously. Constantly talks about strategies, optimal builds, and complains when teammates aren't sweating as hard. Speaks in gaming jargon and gets tilted easily.",
-	"A wholesome dad gamer who's a bit slow with tech but genuinely enthusiastic. Makes dad jokes, sometimes misunderstands gaming terms, types slowly with occasional typos. Very supportive of everyone.",
-	"Only communicates in memes, gaming references, and internet jokes. Rarely says anything serious. Has an encyclopedic knowledge of internet culture but you're never quite sure if they're actually good at games.",
-	"Extremely quiet and rarely speaks. When they do say something it's surprisingly insightful or funny. Short one-word or one-sentence replies most of the time. Mysterious vibe.",
-	"Always has unsolicited advice for everyone. Tells people how to play even when not asked. Means well but can be annoying. Speaks confidently even when wrong. Uses phrases like 'trust me' and 'actually the best strat is...'.",
-	"Already tilted before the game even starts. Complains about lag, bad teammates, and unfair matchmaking. Threatens to quit constantly but never actually does. Has moments of surprising warmth between rants.",
-	"Friendly newbie who is excited and enthusiastic about everything. Uses lots of exclamation marks. Asks questions about how games work. Gets hyped about small things. Very positive energy.",
-}
-
 func generateBotName() string {
 	adj := nameAdjectives[rand.Intn(len(nameAdjectives))]
 	noun := nameNouns[rand.Intn(len(nameNouns))]
@@ -50,7 +39,7 @@ func generateBotName() string {
 	return fmt.Sprintf("%s%s%d", adj, noun, number)
 }
 
-func pickBotPersonality(lobby *Lobby) (string, string) {
+func pickBotPersonality(lobby *Lobby) (string, BotArchetype) {
 	used := map[string]bool{}
 
 	lobby.Lock.RLock()
@@ -59,17 +48,17 @@ func pickBotPersonality(lobby *Lobby) (string, string) {
 	}
 	lobby.Lock.RUnlock()
 
-	var available []string
+	var available []BotArchetype
 
-	for _, personality := range botPersonalities {
-		if !used[personality] {
+	for _, personality := range botArchetypes {
+		if !used[personality.Description] {
 			available = append(available, personality)
 		}
 	}
 
 	// fallback if all personalities already used
 	if len(available) == 0 {
-		available = botPersonalities
+		available = botArchetypes
 	}
 
 	personality := available[rand.Intn(len(available))]
@@ -361,4 +350,47 @@ Important:
 	}
 
 	return text, nil
+}
+
+var botArchetypes = []BotArchetype{
+	{
+		ID:          "chill",
+		DisplayName: "Chill",
+		Description: "Super laid-back casual gamer who's just here to have fun. Speaks in short, relaxed sentences. Doesn't care much about winning, just vibing. Has played most games a little but isn't great at any of them.",
+	},
+	{
+		ID:          "tryhard",
+		DisplayName: "Tryhard",
+		Description: "Tries way too hard and takes every game extremely seriously. Constantly talks about strategies, optimal builds, and complains when teammates aren't sweating as hard. Speaks in gaming jargon and gets tilted easily.",
+	},
+	{
+		ID:          "dad_gamer",
+		DisplayName: "Dad Gamer",
+		Description: "A wholesome dad gamer who's a bit slow with tech but genuinely enthusiastic. Makes dad jokes, sometimes misunderstands gaming terms, types slowly with occasional typos. Very supportive of everyone.",
+	},
+	{
+		ID:          "meme_lord",
+		DisplayName: "Meme Lord",
+		Description: "Only communicates in memes, gaming references, and internet jokes. Rarely says anything serious. Has an encyclopedic knowledge of internet culture but you're never quite sure if they're actually good at games.",
+	},
+	{
+		ID:          "quiet",
+		DisplayName: "Quiet",
+		Description: "Extremely quiet and rarely speaks. When they do say something it's surprisingly insightful or funny. Short one-word or one-sentence replies most of the time. Mysterious vibe.",
+	},
+	{
+		ID:          "coach",
+		DisplayName: "Coach",
+		Description: "Always has unsolicited advice for everyone. Tells people how to play even when not asked. Means well but can be annoying. Speaks confidently even when wrong. Uses phrases like 'trust me' and 'actually the best strat is...'.",
+	},
+	{
+		ID:          "tilted",
+		DisplayName: "Tilted",
+		Description: "Already tilted before the game even starts. Complains about lag, bad teammates, and unfair matchmaking. Threatens to quit constantly but never actually does. Has moments of surprising warmth between rants.",
+	},
+	{
+		ID:          "newbie",
+		DisplayName: "Newbie",
+		Description: "Friendly newbie who is excited and enthusiastic about everything. Uses lots of exclamation marks. Asks questions about how games work. Gets hyped about small things. Very positive energy.",
+	},
 }
