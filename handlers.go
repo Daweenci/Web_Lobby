@@ -504,16 +504,18 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 	lobby.ChatHistory = append(lobby.ChatHistory, chatMsg)
 	lobby.Lock.Unlock()
 
-	// Broadcast to all players in lobby
 	broadcastLobbyChatMessage(lobby, chatMsg)
 
 	stopTyping(player.ID, lobby)
 
+	// Trigger the centralized pipeline only if bots are present.
 	lobby.Lock.RLock()
-	for _, bot := range lobby.Bots {
-		bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
-	}
+	hasBots := len(lobby.Bots) > 0
 	lobby.Lock.RUnlock()
+
+	if hasBots {
+		go runChatPipeline(lobby)
+	}
 }
 
 var (
@@ -606,11 +608,11 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 
 	name, personality := pickBotPersonality()
 
+	// Bot is now a passive struct — no goroutine, no message queue.
 	bot := &Bot{
 		ID:                      uuid.New().String(),
 		Name:                    name,
 		SystemPromptPersonality: personality,
-		MessageQueue:            make(chan BotMessage, 50),
 	}
 
 	lobby.Lock.Lock()
@@ -626,8 +628,6 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	lobby.Bots = append(lobby.Bots, bot)
 	lobby.BotCreating = false
 	lobby.Lock.Unlock()
-
-	go bot.Start(lobby)
 
 	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
@@ -650,7 +650,6 @@ func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
 	for i := len(lobby.Bots) - 1; i >= 0; i-- {
 		if lobby.Bots[i].ID == msg.BotID {
 			botName = lobby.Bots[i].Name
-			close(lobby.Bots[i].MessageQueue)
 			lobby.Bots = append(lobby.Bots[:i], lobby.Bots[i+1:]...)
 			removed = true
 			break

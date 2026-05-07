@@ -63,20 +63,16 @@ const (
 	ResponseError                 MessageType = "error"
 )
 
+// Bot is a passive personality/generator. It has no goroutine or message queue.
 type Bot struct {
 	ID                      string
 	Name                    string
 	SystemPromptPersonality string
-	MessageQueue            chan BotMessage
 }
 
 type BotDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
-}
-
-type BotMessage struct { //To the bot, not from the bot
-	LobbyID string
 }
 
 type LobbyChatMessage struct {
@@ -201,6 +197,21 @@ type CancelGame struct { //TODO: Why CancelGame not response or request?
 	PlayerID string      `json:"playerID"`
 }
 
+// ChatHandler tracks the state of the centralized chat pipeline for a lobby.
+type ChatHandler struct {
+	// PipelineBusy is true while runChatPipeline is actively processing.
+	PipelineBusy bool
+
+	// PipelineRerunRequested is set when a human sends a message while the
+	// pipeline is already running. The pipeline checks this before finishing
+	// and restarts itself if set.
+	PipelineRerunRequested bool
+
+	// ContinuationBotName is the bot that should speak next after the current
+	// responder finishes (the SECOND slot from the router).
+	ContinuationBotName string
+}
+
 type Lobby struct {
 	ID          string
 	Name        string
@@ -212,6 +223,7 @@ type Lobby struct {
 	GameStart   []PlayerStarted
 	ChatHistory []LobbyChatMessage
 	BotCreating bool
+	ChatHandler ChatHandler
 	Lock        sync.RWMutex
 }
 

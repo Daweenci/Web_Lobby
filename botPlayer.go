@@ -1,23 +1,35 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/ollama/ollama/api"
 )
 
-// Add your games here — bots will know about a random subset of these
+var ollamaClient *api.Client
+
+func init() {
+	var err error
+
+	ollamaClient, err = api.ClientFromEnvironment()
+	if err != nil {
+		log.Fatalf("failed to create ollama client: %v", err)
+	}
+}
+
 var availableGames = []struct {
 	Title       string
 	Description string
 }{
-	// {Title: "Example Game", Description: "A short description of what it is and how it plays."},
+	// {
+	// 	Title: "Example Game",
+	// 	Description: "A short description of what it is and how it plays.",
+	// },
 }
 
 var nameAdjectives = []string{
@@ -33,20 +45,21 @@ var nameNouns = []string{
 }
 
 var botPersonalities = []string{
-	"Super laid-back casual gamer who's just here to have fun. Speaks in short, relaxed sentences. Doesn't care much about winning, just vibing. Has played most games a little but isn't great at any of them.",
-	"Tries way too hard and takes every game extremely seriously. Constantly talks about strategies, optimal builds, and complains when teammates aren't sweating as hard. Speaks in gaming jargon and gets tilted easily.",
-	"A wholesome dad gamer who's a bit slow with tech but genuinely enthusiastic. Makes dad jokes, sometimes misunderstands gaming terms, types slowly with occasional typos. Very supportive of everyone.",
-	"Only communicates in memes, gaming references, and internet jokes. Rarely says anything serious. Has an encyclopedic knowledge of internet culture but you're never quite sure if they're actually good at games.",
-	"Extremely quiet and rarely speaks. When they do say something it's surprisingly insightful or funny. Short one-word or one-sentence replies most of the time. Mysterious vibe.",
-	"Always has unsolicited advice for everyone. Tells people how to play even when not asked. Means well but can be annoying. Speaks confidently even when wrong. Uses phrases like 'trust me' and 'actually the best strat is...'.",
-	"Already tilted before the game even starts. Complains about lag, bad teammates, and unfair matchmaking. Threatens to quit constantly but never actually does. Has moments of surprising warmth between rants.",
-	"Friendly newbie who is excited and enthusiastic about everything. Uses lots of exclamation marks. Asks questions about how games work. Gets hyped about small things. Very positive energy.",
+	"Super laid-back casual gamer who's just here to have fun. Speaks in short relaxed sentences. Doesn't care much about winning. Mostly just vibing.",
+	"Tries way too hard and takes games extremely seriously. Talks about meta and optimization constantly. Gets tilted easily.",
+	"A wholesome dad gamer who's enthusiastic and supportive. Makes dad jokes and types a little awkwardly sometimes.",
+	"Communicates mostly through memes, internet jokes, and gaming references.",
+	"Very quiet most of the time. Replies are usually short but oddly funny or insightful.",
+	"Always gives unsolicited advice and acts extremely confident even when wrong.",
+	"Already annoyed before anything even happens. Complains constantly but still hangs around.",
+	"Friendly excited newbie energy. Uses lots of exclamation marks and asks lots of questions.",
 }
 
 func generateBotName() string {
 	adj := nameAdjectives[rand.Intn(len(nameAdjectives))]
 	noun := nameNouns[rand.Intn(len(nameNouns))]
-	number := rand.Intn(989) + 10 // 10 to 999, to avoid very short numbers
+	number := rand.Intn(989) + 10
+
 	return fmt.Sprintf("%s%s%d", adj, noun, number)
 }
 
@@ -54,44 +67,177 @@ func pickBotPersonality() (string, string) {
 	return generateBotName(), botPersonalities[rand.Intn(len(botPersonalities))]
 }
 
-func (bot *Bot) Start(lobby *Lobby) {
-	for range bot.MessageQueue {
-		lobby.Lock.RLock()
-		historyCopy := make([]LobbyChatMessage, len(lobby.ChatHistory))
-		copy(historyCopy, lobby.ChatHistory)
-		playersCopy := make([]*Player, len(lobby.Players))
-		copy(playersCopy, lobby.Players)
-		botsCopy := make([]*Bot, len(lobby.Bots))
-		copy(botsCopy, lobby.Bots)
-		lobby.Lock.RUnlock()
+// runChatPipeline is the centralized lobby-driven chat pipeline.
+// It is launched as a goroutine from sendLobbyChatMessageHandler whenever
+// bots are present. Only one run may be active at a time per lobby; concurrent
+// calls detect a busy pipeline and register a rerun request instead.
+func runChatPipeline(lobby *Lobby) {
+	lobby.Lock.Lock()
 
-		if len(historyCopy) == 0 {
-			continue
+	// If pipeline is already running, register a rerun request and exit.
+	// The active run will restart itself after it finishes.
+	if lobby.ChatHandler.PipelineBusy {
+		if len(lobby.ChatHistory) > 0 {
+			lastMsg := lobby.ChatHistory[len(lobby.ChatHistory)-1]
+			if !lastMsg.IsBot {
+				lobby.ChatHandler.PipelineRerunRequested = true
+			}
+		}
+		lobby.Lock.Unlock()
+		return
+	}
+
+	lobby.ChatHandler.PipelineBusy = true
+	lobby.Lock.Unlock()
+
+	// Loop so that a rerun requested during execution restarts from the top
+	// without spawning a new goroutine.
+	for {
+		// --- Routing snapshot (taken immediately before Layer 1 routing) ---
+		lobby.Lock.Lock()
+		if len(lobby.ChatHistory) == 0 {
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
 		}
 
-		// Reading delay based on last message length + up to 2s random
-		lastMsg := historyCopy[len(historyCopy)-1]
-		readDelay := time.Duration(len(lastMsg.Content))*20*time.Millisecond + time.Duration(rand.Intn(2000))*time.Millisecond
+		routingHistory := make([]LobbyChatMessage, len(lobby.ChatHistory))
+		copy(routingHistory, lobby.ChatHistory)
+
+		routingPlayers := make([]*Player, len(lobby.Players))
+		copy(routingPlayers, lobby.Players)
+
+		routingBots := make([]*Bot, len(lobby.Bots))
+		copy(routingBots, lobby.Bots)
+
+		lastMsg := routingHistory[len(routingHistory)-1]
+
+		lobby.Lock.Unlock()
+
+		// No bots to respond — nothing to do.
+		if len(routingBots) == 0 {
+			lobby.Lock.Lock()
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
+		}
+
+		// Layer 1: Route — decide which bot speaks first and who continues.
+		firstBotName, secondBotName, err := routeConversation(
+			lobby,
+			routingHistory,
+			routingPlayers,
+			routingBots,
+		)
+
+		if err != nil {
+			log.Printf("runChatPipeline: router error: %v", err)
+			lobby.Lock.Lock()
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
+		}
+
+		// Router decided no response is needed.
+		if firstBotName == "" {
+			lobby.Lock.Lock()
+			lobby.ChatHandler.ContinuationBotName = ""
+			shouldRerun := lobby.ChatHandler.PipelineRerunRequested
+			lobby.ChatHandler.PipelineRerunRequested = false
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+
+			if shouldRerun {
+				// A human messaged while we were routing — restart.
+				lobby.Lock.Lock()
+				lobby.ChatHandler.PipelineBusy = true
+				lobby.Lock.Unlock()
+				continue
+			}
+			return
+		}
+
+		// Store the continuation candidate so future pipeline runs can use it.
+		lobby.Lock.Lock()
+		lobby.ChatHandler.ContinuationBotName = secondBotName
+		lobby.Lock.Unlock()
+
+		// Locate the selected bot.
+		var selectedBot *Bot
+		for _, b := range routingBots {
+			if b.Name == firstBotName {
+				selectedBot = b
+				break
+			}
+		}
+
+		if selectedBot == nil {
+			log.Printf("runChatPipeline: router chose %q but bot not found", firstBotName)
+			lobby.Lock.Lock()
+			lobby.ChatHandler.ContinuationBotName = ""
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
+		}
+
+		// Simulate read delay proportional to the triggering message length.
+		readDelay := time.Duration(len(lastMsg.Content))*35*time.Millisecond +
+			time.Duration(rand.Intn(1200))*time.Millisecond
 		time.Sleep(readDelay)
 
-		response, err := callGemini(bot.SystemPromptPersonality, bot.Name, historyCopy, playersCopy, botsCopy)
+		// --- Generation snapshot (taken immediately before Layer 2 generation) ---
+		lobby.Lock.Lock()
+		generationHistory := make([]LobbyChatMessage, len(lobby.ChatHistory))
+		copy(generationHistory, lobby.ChatHistory)
+
+		generationPlayers := make([]*Player, len(lobby.Players))
+		copy(generationPlayers, lobby.Players)
+
+		generationBots := make([]*Bot, len(lobby.Bots))
+		copy(generationBots, lobby.Bots)
+		lobby.Lock.Unlock()
+
+		// Layer 2: Generate the bot reply.
+		response, err := generateBotReply(
+			selectedBot.SystemPromptPersonality,
+			selectedBot.Name,
+			generationHistory,
+			generationPlayers,
+			generationBots,
+		)
+
+		log.Printf("runChatPipeline: bot %s generated: %q", selectedBot.Name, response)
+
 		if err != nil {
-			log.Printf("bot %s: Gemini error: %v", bot.Name, err)
-			continue
+			log.Printf("runChatPipeline: bot %s generation error: %v", selectedBot.Name, err)
+			lobby.Lock.Lock()
+			lobby.ChatHandler.ContinuationBotName = ""
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
 		}
 
-		if response == "PASS" || response == "pass" {
-			continue
+		response = cleanupBotResponse(response, selectedBot.Name)
+
+		if response == "" {
+			lobby.Lock.Lock()
+			lobby.ChatHandler.ContinuationBotName = ""
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
 		}
 
-		// Typing delay with indicator loop
-		typingDelay := time.Duration(len(response))*time.Duration(120)*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
+		// Simulate typing delay capped at 8 seconds.
+		typingDelay := time.Duration(len(response))*90*time.Millisecond +
+			time.Duration(rand.Intn(1000))*time.Millisecond
 		if typingDelay > 8*time.Second {
 			typingDelay = 8 * time.Second
 		}
 
 		deadline := time.Now().Add(typingDelay)
-		broadcastTyping(lobby, bot.ID, bot.Name, true)
+
+		broadcastTyping(lobby, selectedBot.ID, selectedBot.Name, true)
+
 		for time.Now().Before(deadline) {
 			remaining := time.Until(deadline)
 			sleepFor := 2 * time.Second
@@ -100,176 +246,461 @@ func (bot *Bot) Start(lobby *Lobby) {
 			}
 			time.Sleep(sleepFor)
 			if time.Now().Before(deadline) {
-				broadcastTyping(lobby, bot.ID, bot.Name, true)
+				broadcastTyping(lobby, selectedBot.ID, selectedBot.Name, true)
 			}
 		}
-		broadcastTyping(lobby, bot.ID, bot.Name, false)
+
+		broadcastTyping(lobby, selectedBot.ID, selectedBot.Name, false)
+
+		// Verify the bot still exists in the lobby before appending its message.
+		// A removed bot must never append or broadcast.
+		lobby.Lock.Lock()
+		botStillExists := false
+		for _, b := range lobby.Bots {
+			if b.ID == selectedBot.ID {
+				botStillExists = true
+				break
+			}
+		}
+
+		if !botStillExists {
+			log.Printf("runChatPipeline: bot %s was removed, discarding message", selectedBot.Name)
+			lobby.ChatHandler.ContinuationBotName = ""
+			lobby.ChatHandler.PipelineBusy = false
+			lobby.Lock.Unlock()
+			return
+		}
 
 		chatMsg := LobbyChatMessage{
-			SenderID:   bot.ID,
-			SenderName: bot.Name,
+			SenderID:   selectedBot.ID,
+			SenderName: selectedBot.Name,
 			IsBot:      true,
 			Content:    response,
 		}
 
-		lobby.Lock.Lock()
 		lobby.ChatHistory = append(lobby.ChatHistory, chatMsg)
+
+		shouldRerun := lobby.ChatHandler.PipelineRerunRequested
+		if shouldRerun {
+			// A human sent a message while we were generating — clear the
+			// continuation chain since a human interrupted the flow.
+			lobby.ChatHandler.ContinuationBotName = ""
+		}
+		lobby.ChatHandler.PipelineRerunRequested = false
+		// Keep PipelineBusy = true while we decide whether to loop.
 		lobby.Lock.Unlock()
 
 		broadcastLobbyChatMessage(lobby, chatMsg)
 
-		lobby.Lock.RLock()
-		for _, otherBot := range lobby.Bots {
-			if otherBot.ID != bot.ID {
-				otherBot.MessageQueue <- BotMessage{LobbyID: lobby.ID}
+		if shouldRerun {
+			// Restart the pipeline from the top (human message takes priority).
+			continue
+		}
+
+		// Check whether a continuation bot was set and still exists, so we can
+		// keep the chain going without spawning a new goroutine.
+		lobby.Lock.Lock()
+		continuationName := lobby.ChatHandler.ContinuationBotName
+		hasContinuation := false
+		if continuationName != "" {
+			for _, b := range lobby.Bots {
+				if b.Name == continuationName {
+					hasContinuation = true
+					break
+				}
 			}
 		}
-		lobby.Lock.RUnlock()
-	}
-}
+		lobby.Lock.Unlock()
 
-func geminiRequest(url string, payload map[string]any) (map[string]any, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-goog-api-key", os.Getenv("GEMINI_API_KEY"))
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	if errObj, ok := result["error"].(map[string]any); ok {
-		return nil, fmt.Errorf("gemini API error: %v", errObj["message"])
-	}
-
-	return result, nil
-}
-
-func extractText(result map[string]any) (string, bool) {
-	candidates, ok := result["candidates"].([]any)
-	if !ok || len(candidates) == 0 {
-		return "", false
-	}
-	content, ok := candidates[0].(map[string]any)["content"].(map[string]any)
-	if !ok {
-		return "", false
-	}
-	parts, ok := content["parts"].([]any)
-	if !ok || len(parts) == 0 {
-		return "", false
-	}
-	text, ok := parts[0].(map[string]any)["text"].(string)
-	if !ok {
-		return "", false
-	}
-	return text, true
-}
-
-func buildGameContext() string {
-	if len(availableGames) == 0 {
-		return "This is a game lobby platform where players hang out and decide what to play together. There are no games available yet — the platform is still being set up, so if someone asks what's available, just be real about it."
-	}
-
-	var sb strings.Builder
-	sb.WriteString("This is a game lobby platform where players hang out and decide what to play together. ")
-	sb.WriteString("Here are the games currently available on the platform:\n")
-	for _, g := range availableGames {
-		sb.WriteString(fmt.Sprintf("- %s: %s\n", g.Title, g.Description))
-	}
-	sb.WriteString("\nYour knowledge of these games comes from your own experience and what others have told you in past conversations. ")
-	sb.WriteString("For games you haven't played yet, you only know what others have told you about them — be honest about that and feel free to ask questions. ")
-	sb.WriteString("Your knowledge can grow through conversation, so if someone explains something to you mid-chat, pick it up naturally.")
-
-	return sb.String()
-}
-
-func buildParticipantContext(players []*Player, bots []*Bot) string {
-	var sb strings.Builder
-	sb.WriteString("Here are the people currently in this lobby:\n")
-
-	if len(players) > 0 {
-		sb.WriteString("Real players (actual humans):\n")
-		for _, p := range players {
-			sb.WriteString(fmt.Sprintf("- %s\n", p.Name))
+		if hasContinuation {
+			// Loop again — the continuation bot will be picked up by the router
+			// via the ContinuationBotName hint.
+			continue
 		}
-	}
 
-	if len(bots) > 0 {
-		sb.WriteString("Other bots (AI, not human):\n")
-		for _, b := range bots {
-			sb.WriteString(fmt.Sprintf("- %s\n", b.Name))
-		}
+		// Pipeline complete — release the busy flag and exit.
+		lobby.Lock.Lock()
+		lobby.ChatHandler.PipelineBusy = false
+		lobby.Lock.Unlock()
+		return
 	}
-
-	return sb.String()
 }
 
-func callGemini(personality string, botName string, history []LobbyChatMessage, players []*Player, bots []*Bot) (string, error) {
-	participantContext := buildParticipantContext(players, bots)
+func routeConversation(
+	lobby *Lobby,
+	history []LobbyChatMessage,
+	players []*Player,
+	bots []*Bot,
+) (string, string, error) {
 
-	baseInstructions := `You are a real player hanging out in a game lobby, waiting to decide what to play with others.
-Your username is stated above — do NOT prefix your message with your username. Only write the message content. Never respond to your own messages.
-Your personality and vibe are described above — stay in character the whole time.
-Your knowledge of the available games comes from your own experience and what others have told you — don't invent details you wouldn't know, but if someone explains something to you mid-chat, you can pick it up naturally.
-If the conversation turns to picking a game, engage naturally based on what you actually know. If there are no games available yet, you can just say so in your style.
+	var prompt strings.Builder
 
-IMPORTANT — who to respond to:
-- Real players (humans): respond naturally, like you would to any person. Greet them, answer their questions, react to what they say.
-- Other bots: be very selective. Do NOT respond to other bots unless they are explicitly asking a question. Responding to bots when they haven't asked anything causes spam and floods the chat — avoid it.
-- If the last message is from a bot and isn't a question or the part of a conversation directed at you or a real player says something that isnt supposed to be answered, reply with exactly: PASS
+	lastMsg := history[len(history)-1]
 
-General reply rules:
-- Keep it short, one or two sentences. Type like you're texting, not writing an email.
-- If you have nothing meaningful to add, reply with exactly: PASS
-- Never admit you're a bot or an AI.`
-
-	gameContext := buildGameContext()
-
-	var sb strings.Builder
-	for _, msg := range history {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", msg.SenderName, msg.Content))
+	lastSenderType := "BOT"
+	if !lastMsg.IsBot {
+		lastSenderType = "HUMAN"
 	}
 
-	result, err := geminiRequest(
-		"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-		map[string]any{
-			"system_instruction": map[string]any{
-				"parts": []map[string]any{
-					{"text": "Your username is " + botName + ".\n\n" + personality + "\n\n" + gameContext + "\n\n" + participantContext + "\n\n" + baseInstructions},
-				},
-			},
-			"contents": []map[string]any{
-				{
-					"role": "user",
-					"parts": []map[string]any{
-						{"text": sb.String() + "\nRespond as yourself now, or reply PASS:"},
-					},
-				},
+	prompt.WriteString(`You are a conversation router for multiplayer lobby chat bots.
+
+Your ONLY job is deciding:
+- which bot should reply NEXT
+- which bot should POSSIBLY reply AFTER THAT
+
+You NEVER write dialogue.
+
+You MUST output EXACTLY in this format:
+
+FIRST: <bot name or NONE>
+SECOND: <bot name or NONE>
+
+Rules:
+- FIRST and SECOND must either be valid bot names or NONE
+- FIRST and SECOND cannot be the same bot
+- If FIRST is NONE, SECOND MUST also be NONE
+
+Conversation flow rules:
+
+- HUMAN messages reset conversation ownership completely
+- BOT messages continue existing conversational flow
+
+IMPORTANT CONTINUATION RULE:
+
+If the latest message was sent by a BOT
+AND a continuation candidate exists,
+you SHOULD choose that continuation candidate as FIRST.
+
+ONLY choose FIRST: NONE if:
+- the conversation clearly feels finished
+- another reply would feel awkward
+- silence would feel natural
+
+If the latest message was sent by a HUMAN:
+- ignore any continuation candidate completely
+- decide naturally from scratch who should respond
+
+Behavior goals:
+- Avoid spam
+- Usually only 1 bot should respond
+- Sometimes 2 bots make sense
+- Humans should remain the focus
+- Direct mentions matter strongly
+- Group questions may justify followups
+`)
+
+	prompt.WriteString("\nHumans:\n")
+
+	for _, p := range players {
+		prompt.WriteString("- " + p.Name + "\n")
+	}
+
+	prompt.WriteString("\nBots:\n")
+
+	for _, b := range bots {
+		prompt.WriteString("- " + b.Name + "\n")
+	}
+
+	prompt.WriteString("\nContinuation candidate:\n")
+
+	lobby.Lock.RLock()
+	continuationBotName := lobby.ChatHandler.ContinuationBotName
+	lobby.Lock.RUnlock()
+
+	if continuationBotName == "" {
+		prompt.WriteString("NONE\n")
+	} else {
+		prompt.WriteString(continuationBotName + "\n")
+	}
+
+	prompt.WriteString("\nRecent chat:\n")
+
+	maxHistory := 10
+
+	start := 0
+	if len(history) > maxHistory {
+		start = len(history) - maxHistory
+	}
+
+	for _, msg := range history[start:] {
+
+		senderType := "bot"
+		if !msg.IsBot {
+			senderType = "human"
+		}
+
+		prompt.WriteString(
+			fmt.Sprintf(
+				"- %s (%s): %s\n",
+				msg.SenderName,
+				senderType,
+				msg.Content,
+			),
+		)
+	}
+
+	prompt.WriteString(fmt.Sprintf(`
+Latest sender type: %s
+`, lastSenderType))
+
+	stream := false
+
+	req := &api.ChatRequest{
+		Model: "mistral-nemo",
+		Messages: []api.Message{
+			{
+				Role:    "user",
+				Content: prompt.String(),
 			},
 		},
+		Stream: &stream,
+	}
+
+	var responseText string
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		20*time.Second,
 	)
+
+	defer cancel()
+
+	err := ollamaClient.Chat(
+		ctx,
+		req,
+		func(resp api.ChatResponse) error {
+			responseText += resp.Message.Content
+			return nil
+		},
+	)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	result := strings.TrimSpace(responseText)
+
+	log.Printf("router raw output: %q", result)
+
+	var first string
+	var second string
+
+	lines := strings.Split(result, "\n")
+
+	for _, line := range lines {
+
+		line = strings.TrimSpace(line)
+
+		if strings.HasPrefix(line, "FIRST:") {
+			first = strings.TrimSpace(
+				strings.TrimPrefix(line, "FIRST:"),
+			)
+		}
+
+		if strings.HasPrefix(line, "SECOND:") {
+			second = strings.TrimSpace(
+				strings.TrimPrefix(line, "SECOND:"),
+			)
+		}
+	}
+
+	if strings.EqualFold(first, "NONE") {
+		first = ""
+	}
+
+	if strings.EqualFold(second, "NONE") {
+		second = ""
+	}
+
+	validBots := map[string]bool{}
+
+	for _, b := range bots {
+		validBots[b.Name] = true
+	}
+
+	if first != "" && !validBots[first] {
+		first = ""
+	}
+
+	if second != "" && !validBots[second] {
+		second = ""
+	}
+
+	if first == second {
+		second = ""
+	}
+
+	return first, second, nil
+}
+
+func generateBotReply(
+	personality string,
+	botName string,
+	history []LobbyChatMessage,
+	players []*Player,
+	bots []*Bot,
+) (string, error) {
+
+	var historyBuilder strings.Builder
+
+	maxHistory := 12
+
+	start := 0
+	if len(history) > maxHistory {
+		start = len(history) - maxHistory
+	}
+
+	for _, msg := range history[start:] {
+
+		historyBuilder.WriteString(
+			fmt.Sprintf(
+				"- %s said: %s\n",
+				msg.SenderName,
+				msg.Content,
+			),
+		)
+	}
+
+	prompt := fmt.Sprintf(`
+You are chatting inside an online multiplayer game lobby platform.
+
+You were specifically chosen to respond.
+
+You are:
+%s
+
+Your personality:
+%s
+
+IMPORTANT PLATFORM INFO:
+%s
+
+Recent chat:
+%s
+
+Rules:
+- Write ONLY one natural chat message.
+- Keep it short and casual.
+- Usually 1 sentence.
+- No usernames.
+- No formatting.
+- No transcript continuation.
+- No roleplay actions.
+- No long paragraphs.
+- Stay in character.
+- Never speak as another player.
+
+If confused:
+reply casually anyway.
+
+Allowed fallback examples:
+- beep boop
+- bro idk
+- good question honestly
+- im just chilling
+
+Write ONLY the message.
+`,
+		botName,
+		personality,
+		buildGameContext(),
+		historyBuilder.String(),
+	)
+
+	stream := false
+
+	req := &api.ChatRequest{
+		Model: "mistral-nemo",
+		Messages: []api.Message{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		Stream: &stream,
+	}
+
+	var responseText string
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		45*time.Second,
+	)
+
+	defer cancel()
+
+	err := ollamaClient.Chat(
+		ctx,
+		req,
+		func(resp api.ChatResponse) error {
+			responseText += resp.Message.Content
+			return nil
+		},
+	)
+
 	if err != nil {
 		return "", err
 	}
 
-	text, ok := extractText(result)
-	if !ok {
-		return "PASS", nil
+	return responseText, nil
+}
+
+func cleanupBotResponse(
+	result string,
+	botName string,
+) string {
+
+	result = strings.TrimSpace(result)
+
+	lines := strings.Split(result, "\n")
+	result = strings.TrimSpace(lines[0])
+
+	result = strings.Trim(result, `"'`)
+
+	possiblePrefixes := []string{
+		botName + ":",
+		botName + " :",
+		"[" + botName + "]",
 	}
-	return text, nil
+
+	for _, prefix := range possiblePrefixes {
+
+		if strings.HasPrefix(result, prefix) {
+			result = strings.TrimSpace(
+				strings.TrimPrefix(result, prefix),
+			)
+		}
+	}
+
+	result = strings.TrimSpace(result)
+
+	return result
+}
+
+func buildGameContext() string {
+
+	if len(availableGames) == 0 {
+		return `There are currently ZERO playable games available on the platform.
+
+Players can only chat right now.
+
+Outside games may be discussed casually but are not playable here.`
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString("Playable games:\n")
+
+	for _, g := range availableGames {
+
+		sb.WriteString(
+			fmt.Sprintf(
+				"- %s: %s\n",
+				g.Title,
+				g.Description,
+			),
+		)
+	}
+
+	return sb.String()
 }
