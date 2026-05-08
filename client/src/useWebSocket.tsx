@@ -375,7 +375,31 @@ export function useWebSocket() {
   const stoppedTyping = (lobbyID: string) =>
     sendMessage({ type: MessageTypes.RequestStartedTyping, lobbyID, isTyping: false });
 
-
+  const createCustomBot = (
+    lobbyID: string,
+    archetypeId: string,
+    energy: number,
+    tilt: number,
+    chaos: number,
+    humor: number,
+    usesEmojis: boolean,
+    usesGamingSlang: boolean,
+    usesMemes: boolean,
+    asksQuestions: boolean,
+  ) =>
+    sendMessage({
+      type: 'create_custom_bot',
+      lobbyId: lobbyID,
+      archetypeId,
+      energy,
+      tilt,
+      chaos,
+      humor,
+      usesEmojis,
+      usesGamingSlang,
+      usesMemes,
+      asksQuestions,
+    });
   // Keep refs in sync so toast buttons always call the latest version
   joinLobbyRef.current = joinLobby;
   declineInviteRef.current = declineInvite;
@@ -429,6 +453,7 @@ export function useWebSocket() {
     sendLobbyChatMessage,
     startedTyping,
     stoppedTyping,
+    createCustomBot,
     getAuthToken,
     setAuthToken,
     clearAuthToken,

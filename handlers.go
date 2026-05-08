@@ -624,12 +624,27 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 		BaseResponse: newBaseResponse(ResponseBotCreating),
 	})
 
-	name, archetype := pickBotPersonality(lobby)
+	botName, archetype := pickBotPersonality(lobby)
+
+	randomBot := CreateCustomBotRequest{
+		LobbyID:         lobby.ID,
+		ArchetypeID:     archetype.ID,
+		EnergyLevel:     rand.Intn(5) + 1,
+		TiltLevel:       rand.Intn(5) + 1,
+		ChaosLevel:      rand.Intn(5) + 1,
+		HumorLevel:      rand.Intn(5) + 1,
+		UsesEmojis:      rand.Float32() < 0.5,
+		UsesGamingSlang: rand.Float32() < 0.5,
+		UsesMemes:       rand.Float32() < 0.4,
+		AsksQuestions:   rand.Float32() < 0.4,
+	}
+
+	personality := buildBotPersonality(archetype, randomBot)
 
 	bot := &Bot{
 		ID:                      uuid.New().String(),
-		Name:                    name,
-		SystemPromptPersonality: archetype.Description,
+		Name:                    botName,
+		SystemPromptPersonality: personality,
 		MessageQueue:            make(chan BotMessage, 1),
 	}
 
@@ -652,7 +667,7 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
-	log.Println("Bot created with personality:", archetype.Description)
+	log.Printf("Random bot created: %s (%s)", bot.Name, archetype.DisplayName)
 }
 
 func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
@@ -851,17 +866,18 @@ func createCustomBotHandler(msg CreateCustomBotRequest) {
 		BaseResponse: newBaseResponse(ResponseBotCreating),
 	})
 
-	var archetype *BotArchetype
+	var archetype BotArchetype
+	var archetypeFound bool = false
 
 	for _, a := range botArchetypes {
 		if a.ID == msg.ArchetypeID {
-			copy := a
-			archetype = &copy
+			archetype = a
+			archetypeFound = true
 			break
 		}
 	}
 
-	if archetype == nil {
+	if !archetypeFound {
 		lobby.Lock.Lock()
 		lobby.BotCreating = false
 		lobby.Lock.Unlock()
@@ -874,71 +890,7 @@ func createCustomBotHandler(msg CreateCustomBotRequest) {
 		return
 	}
 
-	personality := archetype.Description
-
-	switch msg.EnergyLevel {
-	case 1:
-		personality += "\nVery low energy. Rarely types a lot."
-	case 2:
-		personality += "\nPretty calm and relaxed."
-	case 3:
-		personality += "\nModerate energy."
-	case 4:
-		personality += "\nVery energetic and engaged."
-	case 5:
-		personality += "\nExtremely energetic. Constantly hyped and active."
-	}
-
-	switch msg.TiltLevel {
-	case 1:
-		personality += "\nAlmost never gets mad."
-	case 2:
-		personality += "\nGets mildly annoyed sometimes."
-	case 3:
-		personality += "\nCan get tilted during conversations."
-	case 4:
-		personality += "\nGets annoyed and salty pretty easily."
-	case 5:
-		personality += "\nConstantly tilted and complaining."
-	}
-
-	switch msg.ChaosLevel {
-	case 1:
-		personality += "\nActs pretty normal and grounded."
-	case 2:
-		personality += "\nSometimes says random stuff."
-	case 3:
-		personality += "\nFairly chaotic and unpredictable."
-	case 4:
-		personality += "\nFrequently derails conversations with random energy."
-	case 5:
-		personality += "\nAbsolute chaos goblin."
-	}
-
-	switch msg.HumorLevel {
-	case 1:
-		personality += "\nRarely jokes."
-	case 2:
-		personality += "\nOccasionally funny."
-	case 3:
-		personality += "\nLikes making jokes sometimes."
-	case 4:
-		personality += "\nVery playful and humorous."
-	case 5:
-		personality += "\nConstantly joking around."
-	}
-
-	if msg.UsesEmojis {
-		personality += "\nUses emojis naturally sometimes."
-	}
-
-	if msg.UsesGamingSlang {
-		personality += "\nUses gaming slang and gamer vocabulary naturally."
-	}
-
-	if msg.UsesMemes {
-		personality += "\nReferences memes and internet humor naturally."
-	}
+	personality := buildBotPersonality(archetype, msg)
 
 	botName := generateBotName()
 

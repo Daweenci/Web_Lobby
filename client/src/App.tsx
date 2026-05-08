@@ -5,6 +5,7 @@ import { useWebSocket } from './useWebSocket';
 import { Toaster } from 'sonner';
 import { Auth } from './pages/Auth';
 import { useStore } from './store';
+import type { CustomBotConfig } from './structs';
 
 export function App() {
 
@@ -27,6 +28,7 @@ export function App() {
     sendLobbyChatMessage,
     startedTyping,
     stoppedTyping,
+    createCustomBot,
   } = useWebSocket();
 
   const handleConnectWebSocket = () => { connect(); };
@@ -42,7 +44,9 @@ export function App() {
   const handleSendLobbyChatMessage = (content: string) => sendLobbyChatMessage(lobby.id, content);
   const handleStartedTyping = () => startedTyping(lobby.id);
   const handleStoppedTyping = () => stoppedTyping(lobby.id);
-
+  const handleCreateCustomBot = (cfg: CustomBotConfig) =>
+  createCustomBot(lobby.id, cfg.archetypeId, cfg.energy, cfg.tilt, cfg.chaos, cfg.humor,
+    cfg.usesEmojis, cfg.usesGamingSlang, cfg.usesMemes, cfg.asksQuestions);
   return (
     <>
       <Toaster />
@@ -78,6 +82,7 @@ export function App() {
                 acceptFriendRequest={acceptFriendRequest}
                 declineInvite={handleDeclineInvite}
                 joinLobby={handleJoinLobby}
+                createCustomBot={handleCreateCustomBot}
               />
             );
           default:

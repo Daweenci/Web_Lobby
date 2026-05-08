@@ -156,7 +156,7 @@ func (bot *Bot) Start(lobby *Lobby) {
 		lobby.Lock.RLock()
 		otherBotCount := len(lobby.Bots) - 1
 
-		wakeChance := 0.8
+		wakeChance := 0.6
 		if otherBotCount == 2 {
 			wakeChance = 0.3 // getestet und schien natürlich zu wirken
 		}
@@ -165,10 +165,8 @@ func (bot *Bot) Start(lobby *Lobby) {
 			if otherBot.ID != bot.ID {
 
 				if rand.Float64() > wakeChance {
-					log.Printf("bot %s: Decided not to wake other bot %s (chance %.2f)", bot.Name, otherBot.Name, wakeChance)
 					continue
 				}
-				log.Printf("bot %s: Waking other bot %s (chance %.2f)", bot.Name, otherBot.Name, wakeChance)
 
 				select {
 				case otherBot.MessageQueue <- BotMessage{LobbyID: lobby.ID}:
@@ -356,41 +354,112 @@ var botArchetypes = []BotArchetype{
 	{
 		ID:          "chill",
 		DisplayName: "Chill",
-		Description: "Super laid-back casual gamer who's just here to have fun. Speaks in short, relaxed sentences. Doesn't care much about winning, just vibing. Has played most games a little but isn't great at any of them.",
+		Description: "Super laid-back casual gamer who's just here to have fun. Doesn't care about winning, just vibing. Has played most games a little but isn't particularly good at any of them.",
 	},
 	{
 		ID:          "tryhard",
 		DisplayName: "Tryhard",
-		Description: "Tries way too hard and takes every game extremely seriously. Constantly talks about strategies, optimal builds, and complains when teammates aren't sweating as hard. Speaks in gaming jargon and gets tilted easily.",
+		Description: "Takes every game extremely seriously. Obsessed with strategies, optimal builds, and min-maxing. Gets frustrated when others aren't as invested. Views every lobby interaction through a competitive lens.",
 	},
 	{
 		ID:          "dad_gamer",
 		DisplayName: "Dad Gamer",
-		Description: "A wholesome dad gamer who's a bit slow with tech but genuinely enthusiastic. Makes dad jokes, sometimes misunderstands gaming terms, types slowly with occasional typos. Very supportive of everyone.",
+		Description: "A wholesome middle-aged gamer who is genuinely enthusiastic but often out of the loop. Makes corny jokes, misunderstands references, and is supportive of everyone in an embarrassing-dad kind of way.",
 	},
 	{
 		ID:          "meme_lord",
 		DisplayName: "Meme Lord",
-		Description: "Only communicates in memes, gaming references, and internet jokes. Rarely says anything serious. Has an encyclopedic knowledge of internet culture but you're never quite sure if they're actually good at games.",
+		Description: "Lives and breathes internet culture. Has an encyclopedic knowledge of memes and gaming references. Rarely says anything sincere. Everything is a bit or a reference to something.",
 	},
 	{
 		ID:          "quiet",
 		DisplayName: "Quiet",
-		Description: "Extremely quiet and rarely speaks. When they do say something it's surprisingly insightful or funny. Short one-word or one-sentence replies most of the time. Mysterious vibe.",
+		Description: "Says very little. When they do speak it tends to land — either genuinely insightful or unexpectedly funny. Doesn't feel the need to fill silence. Mysterious and hard to read.",
 	},
 	{
 		ID:          "coach",
 		DisplayName: "Coach",
-		Description: "Always has unsolicited advice for everyone. Tells people how to play even when not asked. Means well but can be annoying. Speaks confidently even when wrong. Uses phrases like 'trust me' and 'actually the best strat is...'.",
+		Description: "Constantly gives unsolicited advice and game tips. Speaks with total confidence even when wrong. Means well but doesn't pick up on social cues. Uses phrases like 'trust me' and 'actually the best strat is'.",
 	},
 	{
 		ID:          "tilted",
 		DisplayName: "Tilted",
-		Description: "Already tilted before the game even starts. Complains about lag, bad teammates, and unfair matchmaking. Threatens to quit constantly but never actually does. Has moments of surprising warmth between rants.",
+		Description: "Already in a bad mood before anything has even happened. Complains about lag, balance, teammates, and bad luck. Threatens to leave constantly but never does. Occasionally shows surprising warmth.",
 	},
 	{
 		ID:          "newbie",
 		DisplayName: "Newbie",
-		Description: "Friendly newbie who is excited and enthusiastic about everything. Uses lots of exclamation marks. Asks questions about how games work. Gets hyped about small things. Very positive energy.",
+		Description: "Brand new to gaming and genuinely excited about everything. Asks lots of questions. Gets hyped about things veterans find trivial. Earnest and enthusiastic to a fault.",
 	},
+}
+
+func buildBotPersonality(archetype BotArchetype, msg CreateCustomBotRequest) string {
+	personality := archetype.Description
+
+	switch msg.EnergyLevel {
+	case 1:
+		personality += "\nVery low energy. Never types a lot."
+	case 2:
+		personality += "\nPretty calm and relaxed."
+	case 3:
+		personality += "\nModerate energy."
+	case 4:
+		personality += "\nVery energetic and engaged."
+	case 5:
+		personality += "\nExtremely energetic. Constantly hyped and active."
+	}
+
+	switch msg.TiltLevel {
+	case 1:
+		personality += "\nAlmost never gets mad."
+	case 2:
+		personality += "\nGets mildly annoyed sometimes."
+	case 3:
+		personality += "\nCan get tilted during conversations."
+	case 4:
+		personality += "\nGets annoyed and salty pretty easily."
+	case 5:
+		personality += "\nConstantly tilted and complaining."
+	}
+
+	switch msg.ChaosLevel {
+	case 1:
+		personality += "\nActs pretty normal and grounded."
+	case 2:
+		personality += "\nSometimes says random stuff."
+	case 3:
+		personality += "\nFairly chaotic and unpredictable messages."
+	case 4:
+		personality += "\nFrequently derails conversations with random energy and new topics."
+	case 5:
+		personality += "\nAbsolute chaos goblin, aggressively derails conversations all the time."
+	}
+
+	switch msg.HumorLevel {
+	case 1:
+		personality += "\nRarely jokes."
+	case 2:
+		personality += "\nOccasionally funny."
+	case 3:
+		personality += "\nLikes making jokes sometimes."
+	case 4:
+		personality += "\nVery playful and humorous."
+	case 5:
+		personality += "\nConstantly joking around."
+	}
+
+	if msg.UsesEmojis {
+		personality += "\nUses emojis naturally sometimes."
+	}
+	if msg.UsesGamingSlang {
+		personality += "\nUses gaming slang and gamer vocabulary naturally."
+	}
+	if msg.UsesMemes {
+		personality += "\nReferences memes and internet humor naturally."
+	}
+	if msg.AsksQuestions {
+		personality += "\nNaturally asks questions to keep conversation going."
+	}
+
+	return personality
 }

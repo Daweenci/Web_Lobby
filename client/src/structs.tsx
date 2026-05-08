@@ -8,6 +8,18 @@ export type Bot = {
   name: string;
 };
 
+export type CustomBotConfig = {
+  archetypeId: string;
+  energy: number;
+  tilt: number;
+  chaos: number;
+  humor: number;
+  usesEmojis: boolean;
+  usesGamingSlang: boolean;
+  usesMemes: boolean;
+  asksQuestions: boolean;
+};
+
 export type Friend = {
   id: string;
   name: string;

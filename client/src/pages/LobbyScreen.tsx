@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { Friend } from '@/structs';
+import type { CustomBotConfig, Friend } from '@/structs';
 import inviteIcon from "@/assets/invite.svg";
 import { useStore, type Store } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
 import { UserProfile } from '@/components/UserProfile';
+import { CustomBotModal } from '@/components/CustomBotModal';
 
 type LobbyScreenProps = {
   startGame: () => void;
@@ -20,6 +21,7 @@ type LobbyScreenProps = {
   acceptFriendRequest: (friendID: string, accept: boolean) => void;
   declineInvite: (lobbyID: string) => void;
   joinLobby: (lobbyID: string, joinPassword: string) => void;
+  createCustomBot: (cfg: CustomBotConfig) => void;
 };
 
 export function LobbyScreen({
@@ -37,6 +39,7 @@ export function LobbyScreen({
   acceptFriendRequest,
   declineInvite,
   joinLobby,
+  createCustomBot,
 }: LobbyScreenProps) {
   const { lobby, currentPlayer, chatMessages, typingPlayers, botCreating, friendsList } = useStore(
     useShallow((state: Store) => ({
@@ -54,6 +57,7 @@ export function LobbyScreen({
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const [showCustomBot, setShowCustomBot] = useState(false)
 
   // Scroll to bottom when new messages arrive, not sure wether to keep
   useEffect(() => {
@@ -210,13 +214,29 @@ export function LobbyScreen({
             </div>
 
             {/* Add bot */}
-            <button
+            <div className="flex gap-2">
+              <button
                 onClick={addBotToLobby}
                 disabled={botCreating}
-                className="w-full border-2 border-purple-300 text-purple-600 rounded-xl px-3 py-2 hover:bg-purple-50 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                + Add Bot
-            </button>
+                className="flex-1 border-2 border-purple-300 text-purple-600 rounded-xl px-3 py-2 hover:bg-purple-50 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                + Random Bot
+              </button>
+              <button
+                onClick={() => setShowCustomBot(true)}
+                disabled={botCreating}
+                className="flex-1 border-2 border-purple-400 bg-purple-50 text-purple-700 rounded-xl px-3 py-2 hover:bg-purple-100 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                + Custom Bot
+              </button>
+            </div>
+
+            {showCustomBot && (
+              <CustomBotModal
+                onClose={() => setShowCustomBot(false)}
+                onCreate={createCustomBot}
+              />
+            )}
 
             {/* Start / Cancel */}
             <button
