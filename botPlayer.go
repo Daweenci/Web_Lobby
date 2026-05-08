@@ -40,30 +40,30 @@ func generateBotName() string {
 }
 
 func pickBotPersonality(lobby *Lobby) (string, BotArchetype) {
-	used := map[string]bool{}
+	usedArchetypes := map[string]bool{}
 
 	lobby.Lock.RLock()
 	for _, bot := range lobby.Bots {
-		used[bot.SystemPromptPersonality] = true
+		usedArchetypes[bot.Personality.ArchetypeID] = true
 	}
 	lobby.Lock.RUnlock()
 
 	var available []BotArchetype
 
-	for _, personality := range botArchetypes {
-		if !used[personality.Description] {
-			available = append(available, personality)
+	for _, archetype := range botArchetypes {
+		if !usedArchetypes[archetype.ID] {
+			available = append(available, archetype)
 		}
 	}
 
-	// fallback if all personalities already used
+	// fallback if all archetypes already used
 	if len(available) == 0 {
 		available = botArchetypes
 	}
 
-	personality := available[rand.Intn(len(available))]
+	archetype := available[rand.Intn(len(available))]
 
-	return generateBotName(), personality
+	return generateBotName(), archetype
 }
 
 func (bot *Bot) Start(lobby *Lobby) {
@@ -86,7 +86,37 @@ func (bot *Bot) Start(lobby *Lobby) {
 		readDelay := time.Duration(len(lastMsg.Content))*30*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
 		time.Sleep(readDelay)
 
-		response, err := callGemini(bot.SystemPromptPersonality, bot.Name, historyCopy, playersCopy, botsCopy)
+		var archetype BotArchetype
+
+		for _, a := range botArchetypes {
+			if a.ID == bot.Personality.ArchetypeID {
+				archetype = a
+				break
+			}
+		}
+
+		personalityPrompt := buildBotPersonality(
+			archetype,
+			CreateCustomBotRequest{
+				ArchetypeID:     bot.Personality.ArchetypeID,
+				EnergyLevel:     bot.Personality.EnergyLevel,
+				TiltLevel:       bot.Personality.TiltLevel,
+				ChaosLevel:      bot.Personality.ChaosLevel,
+				HumorLevel:      bot.Personality.HumorLevel,
+				UsesEmojis:      bot.Personality.UsesEmojis,
+				UsesGamingSlang: bot.Personality.UsesGamingSlang,
+				UsesMemes:       bot.Personality.UsesMemes,
+				AsksQuestions:   bot.Personality.AsksQuestions,
+			},
+		)
+
+		response, err := callGemini(
+			personalityPrompt,
+			bot.Name,
+			historyCopy,
+			playersCopy,
+			botsCopy,
+		)
 		if err != nil {
 			log.Printf("bot %s: Gemini error: %v", bot.Name, err)
 			continue

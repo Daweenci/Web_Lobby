@@ -521,16 +521,12 @@ func sendLobbyChatMessageHandler(msg SendLobbyChatMessageRequest) {
 
 	go func() {
 		for i, bot := range botsCopy {
-
 			if i > 0 {
 				time.Sleep(2500 * time.Millisecond) // WOW das hat alles so viel besser gemacht unglaublich
 			}
-
 			select {
 			case bot.MessageQueue <- BotMessage{LobbyID: lobby.ID}:
-				log.Printf("Queued bot %s after delay", bot.Name)
 			default:
-				log.Printf("Skipped bot %s because queue already full", bot.Name)
 			}
 		}
 	}()
@@ -601,22 +597,29 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	}
 
 	lobby.Lock.Lock()
+
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		lobby.Lock.Unlock()
+
 		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
 			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
 			Message:      "Lobby is full",
 		})
+
 		return
 	}
+
 	if lobby.BotCreating {
 		lobby.Lock.Unlock()
+
 		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
 			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
 			Message:      "A bot is already being created",
 		})
+
 		return
 	}
+
 	lobby.BotCreating = true
 	lobby.Lock.Unlock()
 
@@ -626,38 +629,41 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 
 	botName, archetype := pickBotPersonality(lobby)
 
-	randomBot := CreateCustomBotRequest{
-		LobbyID:         lobby.ID,
-		ArchetypeID:     archetype.ID,
-		EnergyLevel:     rand.Intn(5) + 1,
-		TiltLevel:       rand.Intn(5) + 1,
-		ChaosLevel:      rand.Intn(5) + 1,
-		HumorLevel:      rand.Intn(5) + 1,
+	personality := BotPersonality{
+		ArchetypeID: archetype.ID,
+
+		EnergyLevel: rand.Intn(5) + 1,
+		TiltLevel:   rand.Intn(5) + 1,
+		ChaosLevel:  rand.Intn(5) + 1,
+		HumorLevel:  rand.Intn(5) + 1,
+
 		UsesEmojis:      rand.Float32() < 0.5,
 		UsesGamingSlang: rand.Float32() < 0.5,
-		UsesMemes:       rand.Float32() < 0.4,
-		AsksQuestions:   rand.Float32() < 0.4,
+		UsesMemes:       rand.Float32() < 0.5,
+		AsksQuestions:   rand.Float32() < 0.5,
 	}
 
-	personality := buildBotPersonality(archetype, randomBot)
-
 	bot := &Bot{
-		ID:                      uuid.New().String(),
-		Name:                    botName,
-		SystemPromptPersonality: personality,
-		MessageQueue:            make(chan BotMessage, 1),
+		ID:           uuid.New().String(),
+		Name:         botName,
+		Personality:  personality,
+		MessageQueue: make(chan BotMessage, 1),
 	}
 
 	lobby.Lock.Lock()
+
 	if len(lobby.Players)+len(lobby.Bots) >= lobby.MaxPlayers {
 		lobby.BotCreating = false
 		lobby.Lock.Unlock()
+
 		broadcastToLobbyPlayers(lobby, BotCreationFailedResponse{
 			BaseResponse: newBaseResponse(ResponseBotCreationFailed),
 			Message:      "Lobby is full",
 		})
+
 		return
 	}
+
 	lobby.Bots = append(lobby.Bots, bot)
 	lobby.BotCreating = false
 	lobby.Lock.Unlock()
@@ -667,7 +673,12 @@ func addBotToLobbyHandler(msg AddBotToLobbyRequest) {
 	broadcastBotJoined(lobby, bot)
 	broadcastLobbyUpdate(lobby)
 	broadcastLobbies()
-	log.Printf("Random bot created: %s (%s)", bot.Name, archetype.DisplayName)
+
+	log.Printf(
+		"Random bot created: %s (%s)",
+		bot.Name,
+		archetype.DisplayName,
+	)
 }
 
 func removeBotFromLobbyHandler(msg RemoveBotFromLobbyRequest) {
@@ -867,7 +878,7 @@ func createCustomBotHandler(msg CreateCustomBotRequest) {
 	})
 
 	var archetype BotArchetype
-	var archetypeFound bool = false
+	archetypeFound := false
 
 	for _, a := range botArchetypes {
 		if a.ID == msg.ArchetypeID {
@@ -890,15 +901,25 @@ func createCustomBotHandler(msg CreateCustomBotRequest) {
 		return
 	}
 
-	personality := buildBotPersonality(archetype, msg)
+	personality := BotPersonality{
+		ArchetypeID: archetype.ID,
 
-	botName := generateBotName()
+		EnergyLevel: msg.EnergyLevel,
+		TiltLevel:   msg.TiltLevel,
+		ChaosLevel:  msg.ChaosLevel,
+		HumorLevel:  msg.HumorLevel,
+
+		UsesEmojis:      msg.UsesEmojis,
+		UsesGamingSlang: msg.UsesGamingSlang,
+		UsesMemes:       msg.UsesMemes,
+		AsksQuestions:   msg.AsksQuestions,
+	}
 
 	bot := &Bot{
-		ID:                      uuid.New().String(),
-		Name:                    botName,
-		SystemPromptPersonality: personality,
-		MessageQueue:            make(chan BotMessage, 1),
+		ID:           uuid.New().String(),
+		Name:         generateBotName(),
+		Personality:  personality,
+		MessageQueue: make(chan BotMessage, 1),
 	}
 
 	lobby.Lock.Lock()

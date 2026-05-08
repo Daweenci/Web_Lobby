@@ -70,11 +70,26 @@ type BotArchetype struct {
 	Description string
 }
 
+type BotPersonality struct {
+	ArchetypeID string
+
+	EnergyLevel int
+	TiltLevel   int
+	ChaosLevel  int
+	HumorLevel  int
+
+	UsesEmojis      bool
+	UsesGamingSlang bool
+	UsesMemes       bool
+	AsksQuestions   bool
+}
+
 type Bot struct {
-	ID                      string
-	Name                    string
-	SystemPromptPersonality string
-	MessageQueue            chan BotMessage
+	ID           string
+	Name         string
+	ArchetypeID  string
+	Personality  BotPersonality
+	MessageQueue chan BotMessage
 }
 
 type BotDTO struct {
