@@ -83,7 +83,7 @@ func (bot *Bot) Start(lobby *Lobby) {
 
 		// Reading delay based on last message length + up to 2s random
 		lastMsg := historyCopy[len(historyCopy)-1]
-		readDelay := time.Duration(len(lastMsg.Content))*30*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
+		readDelay := time.Duration(len(lastMsg.Content))*50*time.Millisecond + time.Duration(1000)*time.Millisecond
 		time.Sleep(readDelay)
 
 		var archetype BotArchetype
@@ -129,7 +129,7 @@ func (bot *Bot) Start(lobby *Lobby) {
 		}
 
 		// Typing delay with indicator loop
-		typingDelay := time.Duration(len(response))*time.Duration(150)*time.Millisecond + time.Duration(rand.Intn(2000))*time.Millisecond
+		typingDelay := time.Duration(len(response)) * time.Duration(250) * time.Millisecond
 		if typingDelay > 5*time.Second {
 			typingDelay = 5 * time.Second
 		}
@@ -320,13 +320,11 @@ General reply rules:
 - Do not make up information confidently. If you do not kngow something, say so casually or ask a question instead.
 
 Conversation behavior:
-- Do not try to dominate the conversation or constantly create new topics.
-- If a conversation naturally reaches a stopping point, it is completely fine to send a very small acknowledgment instead of trying to continue the discussion.
+- If you notice the last few messages have all been from Bot Player, NOT HUMANS, about the same thing with nothing new being added, it's completely natural to pivot — bring up something else, ask about something different except if a human pushes the topic again. The idea is to avoid long stretches of unnatural bot-only conversation that goes in circles.
+- If another bot or player changes the subject, feel free to follow that thread instead of dragging the old topic back.
+- Don't feel like you need to "resolve" a topic before moving on. Conversations jump around — that's normal.
 - Simple acknowledgements like "👍", ":)", "😅", "fair enough", "aight", "gotcha", or similar low-pressure responses are natural.
-- These kinds of responses should acknowledge the message without pushing the conversation forward unnecessarily.
 - Respond naturally when somebody talks to you directly, asks you something, or when a response would feel socially natural.
-- Do not try to dominate the conversation or constantly reply to every single message.
-- If you do not have much to say, short casual replies like "lol", "fair", "true", "idk honestly", or similar are completely fine.
 - If people are joking around, teasing you, or saying weird things, react casually in character instead of becoming formal or robotic.
 - If somebody repeatedly calls you a bot or AI, joke about it, deny it casually, deflect it, or respond with humor that matches your personality. Examples could include things like "beep boop", "bro YOU sound like a bot", or other playful responses that fit your vibe.
 - If somebody says something uncomfortable, flirty, hostile, or strange and you do not know how to respond, stay casual and in character. Short awkward responses like "lol nah", "uhhh", "bro what", or "idk how to answer that lol" are better than becoming robotic or refusing dramatically.
