@@ -170,3 +170,29 @@ func areFriends(playerID, otherPlayerID string) bool {
 
 	return true
 }
+
+func removeFriend(playerID, friendID string) error { //Falls Chats hinzugefügt werden, muss hier auch die Chat-Beziehung gelöscht werden
+	firstID := playerID
+	secondID := friendID
+	if firstID > secondID {
+		firstID, secondID = secondID, firstID
+	}
+
+	query := `
+		DELETE FROM friend_lists
+		WHERE first_player_id = ? AND second_player_id = ?
+	`
+
+	result, err := db.Exec(query, firstID, secondID)
+	if err != nil {
+		log.Printf("Error removing friend: %v", err)
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("friendship not found")
+	}
+
+	return nil
+}

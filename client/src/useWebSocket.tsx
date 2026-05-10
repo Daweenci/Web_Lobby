@@ -294,6 +294,17 @@ export function useWebSocket() {
             useStore.getState().removeTypingPlayer(data.playerID);
           }
           break;
+        
+        case MessageTypes.ResponseFriendRemoved:
+          var friendName = '';
+          useStore.getState().friendsList.forEach((f) => {
+            if (f.id === data.friendID) {
+              friendName = f.name;
+            }
+          });
+          useStore.getState().removeFriend(data.friendID);
+          toast(`Removed ${friendName} from friends list`);
+          break;
 
         case MessageTypes.ResponseError:
           toast(data.error || 'An error occurred');

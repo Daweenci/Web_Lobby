@@ -46,6 +46,8 @@ export interface Store {
     setBotCreating: (creating: boolean) => void;
     addBot: (bot: any) => void;
     removeBot: (botID: string) => void;
+
+    removeFriend: (friendID: string) => void;
 }
 
 export const useStore = create<Store>((set) => ({
@@ -171,6 +173,15 @@ export const useStore = create<Store>((set) => ({
                 ...state.lobby,
                 bots: state.lobby.bots.filter((b) => b.id !== botID),
                 },
+            };
+        }),
+
+    removeFriend: (friendID) =>
+        set((state) => {
+            const friendExists = state.friendsList.some((f) => f.id === friendID);
+            if (!friendExists) return state;
+            return {
+                friendsList: state.friendsList.filter((f) => f.id !== friendID),
             };
         }),
 }));

@@ -21,6 +21,7 @@ const (
 	RequestStartGame            MessageType = "start_game"
 	RequestCancelGame           MessageType = "cancel_game"
 	RequestAddFriend            MessageType = "add_friend"
+	RequestRemoveFriend         MessageType = "remove_friend"
 	RequestAcceptFriendRequest  MessageType = "accept_friend_request"
 	RequestInviteToLobby        MessageType = "invite_to_lobby"
 	RequestDeclineInvite        MessageType = "decline_invite"
@@ -62,6 +63,7 @@ const (
 	ResponseLobbyChatMessage      MessageType = "lobby_chat_message"
 	ResponseFriendsList           MessageType = "friends_list"
 	ResponseError                 MessageType = "error"
+	ResponseFriendRemoved         MessageType = "friend_removed"
 )
 
 type BotArchetype struct {
@@ -170,6 +172,12 @@ type AddFriendRequest struct {
 	Type       MessageType `json:"type"`
 	FriendName string      `json:"friendName"`
 	PlayerID   string      `json:"playerID"`
+}
+
+type RemoveFriendRequest struct {
+	Type     MessageType `json:"type"`
+	FriendID string      `json:"friendID"`
+	PlayerID string      `json:"playerID"`
 }
 
 type GetPendingFriendRequestsRequest struct {
@@ -418,4 +426,9 @@ type BotCreatingResponse struct {
 type BotCreationFailedResponse struct {
 	BaseResponse
 	Message string `json:"message"`
+}
+
+type FriendRemovedResponse struct {
+	BaseResponse
+	FriendID string `json:"friendID"`
 }

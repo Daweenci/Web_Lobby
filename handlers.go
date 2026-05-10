@@ -952,3 +952,26 @@ func createCustomBotHandler(msg CreateCustomBotRequest) {
 		archetype.DisplayName,
 	)
 }
+
+func removeFriendHandler(msg RemoveFriendRequest) {
+	err := removeFriend(msg.PlayerID, msg.FriendID)
+	activePlayersLock.RLock()
+	friend, ok := activePlayers[msg.FriendID]
+	player, ok := activePlayers[msg.PlayerID]
+	activePlayersLock.RUnlock()
+	if err != nil {
+		log.Printf("removeFriendHandler: %v", err)
+		if ok {
+			sendErrorToPlayer(player, "Error removing friend")
+		}
+		return
+	}
+	sendResponse(player, FriendRemovedResponse{
+		BaseResponse: newBaseResponse(ResponseFriendRemoved),
+		FriendID:     msg.FriendID,
+	})
+	sendResponse(friend, FriendsListResponse{
+		BaseResponse: newBaseResponse(ResponseFriendsList),
+		FriendsList:  getFriendsWithOnlineStatus(msg.FriendID),
+	})
+}

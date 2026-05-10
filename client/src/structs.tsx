@@ -119,6 +119,7 @@ export const MessageTypes = {
   ResponseLobbyChatMessage: "lobby_chat_message",
   ResponseInviteDeclined: "invite_declined",
   ResponseError: "error",
+  ResponseFriendRemoved: "friend_removed",
 } as const;
 
 export const Page = {

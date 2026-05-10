@@ -295,6 +295,15 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			createCustomBotHandler(msg)
 
+		case RequestRemoveFriend:
+			var msg RemoveFriendRequest
+			if err := json.Unmarshal(msgBytes, &msg); err != nil {
+				sendErrorToPlayer(player, "Invalid remove_friend message")
+				continue
+			}
+			msg.PlayerID = player.ID
+			removeFriendHandler(msg)
+
 		default:
 			sendErrorToPlayer(player, "Unknown message type")
 		}
