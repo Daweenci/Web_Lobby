@@ -351,6 +351,9 @@ export function useWebSocket() {
   const addFriend = (friendName: string) =>
     sendMessage({ type: MessageTypes.RequestAddFriend, friendName });
 
+  const removeFriend = (friendID: string) =>
+    sendMessage({ type: MessageTypes.RequestRemoveFriend, friendID });
+
   const acceptFriendRequest = (friendID: string, acceptRequest: boolean) =>
     sendMessage({ type: MessageTypes.RequestAcceptFriendRequest, friendID, acceptRequest });
 
@@ -440,6 +443,7 @@ export function useWebSocket() {
     connect,
     logout,
     addFriend,
+    removeFriend,
     acceptFriendRequest,
     createLobby,
     joinLobby,

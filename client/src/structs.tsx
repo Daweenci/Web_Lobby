@@ -82,6 +82,7 @@ export const MessageTypes = {
   RequestStartGame: "start_game",
   RequestCancelGame: "cancel_game",
   RequestAddFriend: "add_friend",
+  RequestRemoveFriend: "remove_friend",
   RequestAcceptFriendRequest: "accept_friend_request",
   RequestInviteToLobby: "invite_to_lobby",
   RequestDeclineInvite: "decline_invite",

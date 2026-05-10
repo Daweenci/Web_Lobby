@@ -3,7 +3,6 @@ import type { CustomBotConfig, Friend } from '@/structs';
 import inviteIcon from "@/assets/invite.svg";
 import { useStore, type Store } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import { UserProfile } from '@/components/UserProfile';
 import { CustomBotModal } from '@/components/CustomBotModal';
 
 type LobbyScreenProps = {
@@ -16,11 +15,6 @@ type LobbyScreenProps = {
   sendLobbyChatMessage: (content: string) => void;
   startedTyping: () => void;
   stoppedTyping: () => void;
-  logout: () => void;
-  addFriend: (friendName: string) => void;
-  acceptFriendRequest: (friendID: string, accept: boolean) => void;
-  declineInvite: (lobbyID: string) => void;
-  joinLobby: (lobbyID: string, joinPassword: string) => void;
   createCustomBot: (cfg: CustomBotConfig) => void;
 };
 
@@ -34,11 +28,6 @@ export function LobbyScreen({
   sendLobbyChatMessage,
   startedTyping,
   stoppedTyping,
-  logout,
-  addFriend,
-  acceptFriendRequest,
-  declineInvite,
-  joinLobby,
   createCustomBot,
 }: LobbyScreenProps) {
   const { lobby, currentPlayer, chatMessages, typingPlayers, botCreating, friendsList } = useStore(
@@ -127,15 +116,6 @@ export function LobbyScreen({
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
-      <div className="absolute top-4 right-6">
-        <UserProfile
-          onLogout={logout}
-          onAddFriend={addFriend}
-          onAcceptFriendRequest={acceptFriendRequest}
-          onDeclineInvite={declineInvite}
-          onJoinLobby={(lobbyID) => joinLobby(lobbyID, '')}
-        />
-      </div>
       <div className="flex gap-6 w-full max-w-5xl">
 
         {/* Left panel — lobby info */}

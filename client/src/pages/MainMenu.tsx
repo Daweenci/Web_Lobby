@@ -4,25 +4,16 @@ import { useState } from 'react';
 import { CreateLobbyModal } from './CreateLobbyModal';
 import { JoinPasswordModal } from './JoinPasswordModal';
 import { toast } from 'sonner';
-import { UserProfile } from '@/components/UserProfile';
 import { useStore } from '@/store';
 
 type MainMenuProps = {
   createLobby: (name: string, maxPlayers: number, isPrivate: boolean, password: string) => void;
   joinLobby: (id: string, joinPassword: string) => void;
-  logout: () => void;
-  addFriend: (friendName: string) => void;
-  acceptFriendRequest: (friendID: string, accept: boolean) => void;
-  declineInvite: (lobbyID: string) => void;
 };
 
 export function MainMenu({
   createLobby,
   joinLobby,
-  logout,
-  addFriend,
-  acceptFriendRequest,
-  declineInvite,
 }: MainMenuProps) {
   const lobbies = useStore((state) => (state.broadcastedLobbies));
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,15 +51,6 @@ export function MainMenu({
     <div>
       <div className="relative px-6 py-4">
         <h1 className="text-4xl font-bold text-center">Main Menu</h1>
-        <div className="absolute top-4 right-6">
-          <UserProfile
-            onLogout={logout}
-            onAddFriend={addFriend}
-            onAcceptFriendRequest={acceptFriendRequest}
-            onDeclineInvite={declineInvite}
-            onJoinLobby={(lobbyID) => joinLobby(lobbyID, '')}
-          />
-        </div>
       </div>
 
       <div id="existingLobbies" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 px-6">

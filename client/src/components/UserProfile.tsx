@@ -11,6 +11,7 @@ type Props = {
   onAcceptFriendRequest: (friendID: string, accept: boolean) => void;
   onDeclineInvite: (lobbyID: string) => void;
   onJoinLobby: (lobbyID: string) => void;
+  onRemoveFriend: (friendID: string) => void;
 };
 
 export function UserProfile({
@@ -19,6 +20,7 @@ export function UserProfile({
   onAcceptFriendRequest,
   onDeclineInvite,
   onJoinLobby,
+  onRemoveFriend,
 }: Props) {
   const { player, pendingFriendRequests, friendsList, pendingInvites } = useStore(
     useShallow((state: Store) => ({
@@ -30,13 +32,31 @@ export function UserProfile({
   );
   type View = "menu" | "friends" | "invites" | "settings" | null;
   const [view, setView] = useState<View>(null);
+  const [confirmRemoveID, setConfirmRemoveID] = useState<string | null>(null);
   const friendInputRef = useRef<HTMLInputElement>(null);
 
   const toggleDropdown = () => {
     setView(prev => (prev ? null : "menu"));
+    setConfirmRemoveID(null);
+  };
+
+  const handleRemoveClick = (friendID: string) => {
+    setConfirmRemoveID(friendID);
+  };
+
+  const handleConfirmRemove = () => {
+    if (confirmRemoveID) {
+      onRemoveFriend(confirmRemoveID);
+      setConfirmRemoveID(null);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setConfirmRemoveID(null);
   };
 
   const totalNotifications = pendingFriendRequests.length + pendingInvites.length;
+  const confirmRemoveFriend = friendsList.find(f => f.id === confirmRemoveID);
 
   return (
     <div className="relative">
@@ -96,16 +116,16 @@ export function UserProfile({
           )}
 
           {view === "friends" && (
-            <div className="absolute right-0 mt-2 w-72 bg-white border rounded shadow">
-              <div className="p-3 flex flex-col gap-2 items-start">
+            <div className="absolute right-0 mt-2 w-72 bg-white border rounded shadow max-h-[480px] flex flex-col overflow-hidden">
+              <div className="p-3 flex flex-col gap-2 items-start overflow-hidden">
                 <button
-                  onClick={() => setView("menu")}
-                  className="text-sm border border-blue-500 text-blue-500 rounded px-3 py-1 hover:bg-blue-500 hover:text-white transition duration-200"
+                  onClick={() => { setView("menu"); setConfirmRemoveID(null); }}
+                  className="text-sm border border-blue-500 text-blue-500 rounded px-3 py-1 hover:bg-blue-500 hover:text-white transition duration-200 shrink-0"
                 >
                   ← Back
                 </button>
 
-                <div className="flex gap-2 w-full">
+                <div className="flex gap-2 w-full shrink-0">
                   <input
                     ref={friendInputRef}
                     type="text"
@@ -120,11 +140,11 @@ export function UserProfile({
                   </button>
                 </div>
 
-                <h3 className="text-sm font-semibold mt-2 text-gray-700">Pending Requests</h3>
+                <h3 className="text-sm font-semibold mt-2 text-gray-700 shrink-0">Pending Requests</h3>
                 {pendingFriendRequests.length === 0 ? (
-                  <p className="text-sm text-gray-400">No pending requests</p>
+                  <p className="text-sm text-gray-400 shrink-0">No pending requests</p>
                 ) : (
-                  <ul className="w-full flex flex-col gap-1">
+                  <ul className="w-full flex flex-col gap-1 max-h-32 overflow-y-auto">
                     {pendingFriendRequests.map((req) => (
                       <li key={req.id} className="flex items-center justify-between gap-2">
                         <span className="text-sm text-gray-600">{req.name}</span>
@@ -147,15 +167,48 @@ export function UserProfile({
                   </ul>
                 )}
 
-                <h3 className="text-sm font-semibold mt-2 text-gray-700">Friends</h3>
+                <h3 className="text-sm font-semibold mt-2 text-gray-700 shrink-0">Friends</h3>
                 {friendsList.length === 0 ? (
-                  <p className="text-sm text-gray-400">No friends yet</p>
+                  <p className="text-sm text-gray-400 shrink-0">No friends yet</p>
                 ) : (
-                  <ul className="w-full flex flex-col gap-1">
+                  <ul className="w-full flex flex-col gap-1 max-h-48 overflow-y-auto">
                     {friendsList.map((friend) => (
-                      <li key={friend.id} className="flex items-center gap-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${friend.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
-                        <span className="text-sm text-gray-700">{friend.name}</span>
+                      <li key={friend.id}>
+                        {confirmRemoveID === friend.id ? (
+                          <div className="flex items-center justify-between gap-2 bg-red-50 border border-red-100 rounded-lg px-2 py-1.5">
+                            <span className="text-xs text-red-600 font-medium truncate">
+                              Remove <strong>{confirmRemoveFriend?.name}</strong>?
+                            </span>
+                            <div className="flex gap-1 shrink-0">
+                              <button
+                                onClick={handleConfirmRemove}
+                                className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={handleCancelRemove}
+                                className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded hover:bg-gray-200 transition"
+                              >
+                                No
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2 px-0.5 py-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${friend.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <span className="text-sm text-gray-700">{friend.name}</span>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveClick(friend.id)}
+                              className="text-gray-300 hover:text-red-500 transition text-xs shrink-0"
+                              title="Remove friend"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -165,20 +218,20 @@ export function UserProfile({
           )}
 
           {view === "invites" && (
-            <div className="absolute right-0 mt-2 w-72 bg-white border rounded shadow">
-              <div className="p-3 flex flex-col gap-2 items-start">
+            <div className="absolute right-0 mt-2 w-72 bg-white border rounded shadow max-h-[480px] flex flex-col overflow-hidden">
+              <div className="p-3 flex flex-col gap-2 items-start overflow-hidden">
                 <button
                   onClick={() => setView("menu")}
-                  className="text-sm border border-blue-500 text-blue-500 rounded px-3 py-1 hover:bg-blue-500 hover:text-white transition duration-200"
+                  className="text-sm border border-blue-500 text-blue-500 rounded px-3 py-1 hover:bg-blue-500 hover:text-white transition duration-200 shrink-0"
                 >
                   ← Back
                 </button>
 
-                <h3 className="text-sm font-semibold text-gray-700">Pending Invites</h3>
+                <h3 className="text-sm font-semibold text-gray-700 shrink-0">Pending Invites</h3>
                 {pendingInvites.length === 0 ? (
-                  <p className="text-sm text-gray-400">No pending invites</p>
+                  <p className="text-sm text-gray-400 shrink-0">No pending invites</p>
                 ) : (
-                  <ul className="w-full flex flex-col gap-2">
+                  <ul className="w-full flex flex-col gap-2 overflow-y-auto">
                     {pendingInvites.map((invite) => (
                       <li key={invite.lobbyID} className="flex flex-col gap-1 border border-gray-100 rounded-lg p-2">
                         <span className="text-sm text-gray-800">
@@ -191,7 +244,6 @@ export function UserProfile({
                           >
                             Join
                           </button>
-
                           <button
                             onClick={() => onDeclineInvite(invite.lobbyID)}
                             className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded transition"

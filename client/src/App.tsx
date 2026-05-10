@@ -6,6 +6,8 @@ import { Toaster } from 'sonner';
 import { Auth } from './pages/Auth';
 import { useStore } from './store';
 import type { CustomBotConfig } from './structs';
+import { UserProfile } from '@/components/UserProfile';
+import { PrivateChat } from '@/components/PrivateChat';
 
 export function App() {
 
@@ -18,6 +20,7 @@ export function App() {
     cancelGame,
     leaveLobby,
     joinLobby,
+    removeFriend,
     logout,
     addFriend,
     acceptFriendRequest,
@@ -37,6 +40,7 @@ export function App() {
   const handleCancelGame = () => cancelGame(lobby.id);
   const handleLeaveLobby = () => leaveLobby(lobby.id);
   const handleJoinLobby = (lobbyID: string, lobbyPassword: string) => joinLobby(lobbyID, lobbyPassword);
+  const handleRemoveFriend = (friendID: string) => removeFriend(friendID);
   const handleInviteToLobby = (friendID: string) => inviteToLobby(lobby.id, friendID);
   const handleDeclineInvite = (lobbyID: string) => declineInvite(lobbyID);
   const handleAddBotToLobby = () => addBotToLobby(lobby.id);
@@ -50,6 +54,21 @@ export function App() {
   return (
     <>
       <Toaster />
+      {currentPage !== Page.Auth && (
+        <>
+          <div className="absolute top-4 right-6 z-50">
+            <UserProfile
+              onLogout={logout}
+              onAddFriend={addFriend}
+              onAcceptFriendRequest={acceptFriendRequest}
+              onDeclineInvite={handleDeclineInvite}
+              onJoinLobby={(lobbyID) => joinLobby(lobbyID, '')}
+              onRemoveFriend={(friendID) => handleRemoveFriend(friendID)}
+            />
+          </div>
+          <PrivateChat />
+      </>
+      )}
       {(() => {
         switch (currentPage) {
           case Page.Auth:
@@ -59,10 +78,6 @@ export function App() {
               <MainMenu
                 createLobby={handleCreateLobby}
                 joinLobby={handleJoinLobby}
-                logout={logout}
-                addFriend={addFriend}
-                acceptFriendRequest={acceptFriendRequest}
-                declineInvite={handleDeclineInvite}
               />
             );
           case Page.InLobby:
@@ -77,11 +92,6 @@ export function App() {
                 sendLobbyChatMessage={handleSendLobbyChatMessage}
                 startedTyping={handleStartedTyping}
                 stoppedTyping={handleStoppedTyping}
-                logout={logout}
-                addFriend={addFriend}
-                acceptFriendRequest={acceptFriendRequest}
-                declineInvite={handleDeclineInvite}
-                joinLobby={handleJoinLobby}
                 createCustomBot={handleCreateCustomBot}
               />
             );
